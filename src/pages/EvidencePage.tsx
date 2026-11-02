@@ -1,0 +1,177 @@
+import { useCallback, useEffect, useState } from 'react'
+import { ApiError, listEvidence, type EvidenceArtifact } from '../api'
+import { formatBytes, formatDateTime } from '../format'
+import { Badge, Empty, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
+
+const KINDS = [
+  { value: '', label: '全部类型' },
+  { value: 'investigation_report', label: '调查报告' },
+  { value: 'diagnose_report', label: '体检报告' },
+  { value: 'command_log', label: '命令日志' },
+  { value: 'action_output', label: '动作输出' },
+]
+
+export function verdictTone(verdict: string): BadgeTone {
+  switch (verdict) {
+    case 'ok':
+      return 'green'
+    case 'warn':
+      return 'amber'
+    case 'fail':
+      return 'red'
+    default:
+      return 'gray'
+  }
+}
+
+export function EvidencePage({
+  subjectId,
+  kind,
+  onOpen,
+  onQuery,
+}: {
+  subjectId: string
+  kind: string
+  onOpen: (artifactId: string) => void
+  onQuery: (query: { subjectId: string; kind: string }) => void
+}) {
+  const [subject, setSubject] = useState(subjectId)
+  const [selectedKind, setSelectedKind] = useState(kind)
+  const [artifacts, setArtifacts] = useState<EvidenceArtifact[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const page = await listEvidence({
+        subjectId: subjectId || undefined,
+        kind: kind || undefined,
+        limit: 50,
+      })
+      setArtifacts(page.artifacts)
+    } catch (err) {
+      setArtifacts(null)
+      setError(err instanceof ApiError ? `${err.message}（${err.code}）` : String(err))
+    } finally {
+      setLoading(false)
+    }
+  }, [subjectId, kind])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return (
+    <PageShell
+      title="证据"
+      summary="按主机 / 类型筛；点一行看元数据。正文只经 60s 单对象签名打开，BFF 不转存。"
+      actions={
+        <button type="button" className="button button--ghost" onClick={() => void load()} disabled={loading}>
+          {loading ? '加载中…' : '刷新'}
+        </button>
+      }
+    >
+      <form
+        className="grid"
+        onSubmit={(event) => {
+          event.preventDefault()
+          onQuery({ subjectId: subject.trim(), kind: selectedKind })
+        }}
+      >
+        <label className="field">
+          <span className="field__label">主机 / 主体</span>
+          <input
+            value={subject}
+            onChange={(event) => setSubject(event.target.value)}
+            placeholder="agent-7f3，留空为全部"
+          />
+        </label>
+        <label className="field">
+          <span className="field__label">类型</span>
+          <select
+            value={selectedKind}
+            onChange={(event) => setSelectedKind(event.target.value)}
+          >
+            {KINDS.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="field">
+          <span className="field__label">操作</span>
+          <button type="submit" className="button button--primary">
+            查询
+          </button>
+        </div>
+      </form>
+
+      {error ? (
+        <ErrorBanner>
+          {error}
+          <span className="muted">
+            {' '}
+            —— 确认 <code className="mono">wist-console</code>（BFF）已启动，且能连到证据服务。
+          </span>
+        </ErrorBanner>
+      ) : null}
+
+      {artifacts === null && !error ? (
+        <Empty title="还没有数据" hint="证据服务接上后，这里按时间倒序列出可读的产物。" />
+      ) : null}
+
+      {artifacts && artifacts.length === 0 ? (
+        <Empty title="没有匹配的证据" hint="换个主机或类型再试；也可能是保留期已过（被清理作业删除）。" />
+      ) : null}
+
+      {artifacts && artifacts.length > 0 ? (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>观测时间</th>
+                <th>类型</th>
+                <th>主体</th>
+                <th>结论</th>
+                <th>敏感度</th>
+                <th>大小</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {artifacts.map((artifact) => (
+                <tr key={artifact.artifact_id}>
+                  <td>{formatDateTime(artifact.reported_at)}</td>
+                  <td>
+                    {artifact.kind}
+                    {artifact.subtype ? <span className="muted"> / {artifact.subtype}</span> : null}
+                  </td>
+                  <td>
+                    <code className="mono">{artifact.subject_id}</code>
+                  </td>
+                  <td>
+                    <Badge tone={verdictTone(artifact.verdict)}>{artifact.verdict}</Badge>
+                  </td>
+                  <td>{artifact.sensitivity}</td>
+                  <td>{formatBytes(artifact.size_bytes)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="button button--ghost button--sm"
+                      onClick={() => onOpen(artifact.artifact_id)}
+                    >
+                      查看
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </PageShell>
+  )
+}
