@@ -1,6 +1,7 @@
 import type { ConsoleHealth } from '../api'
 import type { Tab } from '../components/Shell'
-import { Badge, Block, Card, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
+import { Badge, Block, Card, Empty, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
+import { formatRelativeTime } from '../format'
 
 const SOURCES: { key: string; tab: Tab; label: string; hint: string }[] = [
   {
@@ -64,6 +65,8 @@ export function OverviewPage({
   error: string | null
   onNavigate: (tab: Tab) => void
 }) {
+  const interfaces = health?.interfaces ?? []
+
   return (
     <PageShell
       title="概览"
@@ -95,6 +98,54 @@ export function OverviewPage({
           )
         })}
         </div>
+
+        <Card
+          title="接口可用性"
+          subtitle="BFF 每次刷新健康时逐条探活（约 30 秒一轮）；延迟是 BFF 到该接口的往返，不是浏览器的。"
+          aside={
+            <Badge tone={health ? 'green' : 'gray'}>
+              {health ? `${interfaces.length} 条` : '未连上 BFF'}
+            </Badge>
+          }
+        >
+          {interfaces.length === 0 ? (
+            <Empty
+              title="还没有探活结果"
+              hint="等一次健康刷新；如果一直为空，先看页面顶部是不是连不上 console BFF。"
+            />
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>接口</th>
+                    <th>状态</th>
+                    <th>延迟</th>
+                    <th>最近检查</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {interfaces.map((entry) => (
+                    <tr key={entry.id}>
+                      <td>
+                        <strong>{entry.label}</strong>
+                        {entry.url ? <div className="table__error">{entry.url}</div> : null}
+                      </td>
+                      <td>
+                        <Badge tone={toneFor(entry.status)}>{labelFor(entry.status)}</Badge>
+                        {entry.detail ? <div className="table__error">{entry.detail}</div> : null}
+                      </td>
+                      <td>
+                        {entry.latency_ms === undefined ? '—' : `${entry.latency_ms} ms`}
+                      </td>
+                      <td>{formatRelativeTime(entry.checked_at_ms)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
 
         <Card
         title="这个台子不做什么"

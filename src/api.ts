@@ -15,6 +15,22 @@ export interface ConsoleHealth {
   status: string
   version?: string
   sources: Record<string, SourceState>
+  /** 逐条接口探活：BFF 自己看到的那一面。 */
+  interfaces?: InterfaceState[]
+}
+
+/**
+ * 单条接口的可用性。`not_configured` 表示这个地址还没配（不是故障）；
+ * `not_configured` 时没有 `url` / 延迟 / 检查时间。
+ */
+export interface InterfaceState {
+  id: string
+  label: string
+  url?: string
+  status: SourceStateName
+  detail?: string
+  latency_ms?: number
+  checked_at_ms?: number
 }
 
 /** 与 `wist-evidence` 的索引行一致（见 evidence-service.md §5.1）。 */
