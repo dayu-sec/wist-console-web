@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ApiError, getEvidence, presignEvidence, type EvidenceArtifact, type PresignResult } from '../api'
+import { ApiError, contentUrl, getEvidence, presignEvidence, type EvidenceArtifact, type PresignResult } from '../api'
 import { formatBytes, formatCountdown, formatDateTime } from '../format'
 import { Badge, ErrorBanner, Field, InfoBanner, Mono, PageShell } from '../components/ui'
 import { verdictTone } from './EvidencePage'
@@ -8,6 +8,7 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
   const [artifact, setArtifact] = useState<EvidenceArtifact | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signed, setSigned] = useState<PresignResult | null>(null)
+  const [proxied, setProxied] = useState(false)
   const [signError, setSignError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -17,6 +18,7 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
     setArtifact(null)
     setError(null)
     setSigned(null)
+    setProxied(false)
     setSignError(null)
     getEvidence(artifactId)
       .then((value) => {
@@ -43,9 +45,17 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
     try {
       const result = await presignEvidence(artifactId)
       setSigned(result)
+      setProxied(false)
       setNow(Date.now())
       window.open(result.url, '_blank', 'noopener,noreferrer')
     } catch (err) {
+      // 本地文件存储（objects.kind = file）不签发预签名 URL：改走 BFF 代理读。
+      if (err instanceof ApiError && err.code === 'evidence_presign_unsupported') {
+        setSigned(null)
+        setProxied(true)
+        window.open(contentUrl(artifactId), '_blank', 'noopener,noreferrer')
+        return
+      }
       setSignError(err instanceof ApiError ? `${err.message}（${err.code}）` : String(err))
     } finally {
       setBusy(false)
@@ -55,7 +65,7 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
   return (
     <PageShell
       title="证据详情"
-      summary="元数据来自索引；正文只经 60s 单对象签名打开，BFF 不解密也不落盘。"
+      summary="元数据来自索引；正文默认走 60s 单对象签名，本地文件存储下由 BFF 代理读——都不在 BFF 落盘。"
       actions={
         <div className="page-actions">
           <button type="button" className="button button--ghost" onClick={onBack}>
@@ -67,7 +77,7 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
             onClick={() => void openBody()}
             disabled={!artifact || busy}
           >
-            {busy ? '签发中…' : '打开正文（60s）'}
+            {busy ? '签发中…' : '打开正文'}
           </button>
         </div>
       }
@@ -78,6 +88,13 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
       {signed ? (
         <InfoBanner>
           已签发，{formatCountdown(signed.expires_at, now)} 内有效（单对象）。再次打开请重新点按钮。
+        </InfoBanner>
+      ) : null}
+
+      {proxied ? (
+        <InfoBanner>
+          当前部署不签发预签名 URL（证据服务 <code className="mono">objects.kind = file</code>）：
+          正文改由 BFF 代理读取，浏览器仍不持任何凭据。
         </InfoBanner>
       ) : null}
 
@@ -152,9 +169,10 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
           </section>
 
           <section className="block block--narrow">
-            <InfoBanner tone="warn">
-              正文是 zstd 压缩的 JSON：浏览器直接打开会**下载**而不是展开。BFF 的流式解压视图
-              （<code className="mono">/api/evidence/{'{id}'}/content</code>）在 P1 接入。
+            <InfoBanner tone="info">
+              正文是 zstd 压缩的 JSON，读的时候已解压：开了 <code className="mono">s3</code>
+              存储就是一次 60s 单对象签名，本地文件存储（<code className="mono">file</code>）则由
+              BFF 代理读（<code className="mono">/api/evidence/{'{id}'}/content</code>）。
             </InfoBanner>
           </section>
         </>

@@ -161,6 +161,14 @@ export function presignEvidence(artifactId: string): Promise<PresignResult> {
   )
 }
 
+/**
+ * 代理读正文：本地文件存储（`objects.kind = file`）没有预签名 URL，
+ * 页面直接开这个地址，由 BFF 带身份去证据服务取原文。
+ */
+export function contentUrl(artifactId: string): string {
+  return `/api/evidence/${encodeURIComponent(artifactId)}/content`
+}
+
 export interface IntegrationInfo {
   evidence: {
     write_url: string
