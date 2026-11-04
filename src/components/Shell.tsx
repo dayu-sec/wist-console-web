@@ -2,13 +2,14 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../format'
 import { toggleAppTheme, useAppTheme } from '../theme'
 
-export type Tab = 'overview' | 'evidence' | 'topology' | 'metrics' | 'devices' | 'ingest'
+export type Tab = 'overview' | 'evidence' | 'topology' | 'metrics' | 'health' | 'devices' | 'ingest'
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: '概览',
   evidence: '证据',
   topology: '资产拓扑',
   metrics: '运行指标',
+  health: '接口可用性',
   devices: '安全设备',
   ingest: '数据面接入',
 }
@@ -29,6 +30,7 @@ const TAB_GROUPS: { label: string; items: { tab: Tab; icon: ReactNode }[] }[] = 
     label: '运行',
     items: [
       { tab: 'metrics', icon: <IconMetrics /> },
+      { tab: 'health', icon: <IconHealth /> },
       { tab: 'devices', icon: <IconDevice /> },
     ],
   },
@@ -85,6 +87,14 @@ function IconIngest() {
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
       <path d="M8 1.8v6.4M5.2 5.4 8 8.2l2.8-2.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M2.6 9.6v2.4a2 2 0 0 0 2 2h6.8a2 2 0 0 0 2-2V9.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconHealth() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+      <path d="M1.8 8.6h2.6l1.5-3.9 2.2 7 1.6-3.1h4.5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

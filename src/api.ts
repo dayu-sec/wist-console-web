@@ -29,6 +29,8 @@ export interface InterfaceState {
   url?: string
   status: SourceStateName
   detail?: string
+  /** 这一次探活到底验到了哪一层（BFF 侧写的，不是前端猜的）。 */
+  covers?: string
   latency_ms?: number
   checked_at_ms?: number
 }

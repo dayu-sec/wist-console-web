@@ -935,6 +935,40 @@ a:focus-visible {
   white-space: normal;
 }
 
+/* 接口可用性：本次会话的逐次结果（最老在左，最新在右） */
+.uptime {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.uptime__bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.uptime__tick {
+  width: 4px;
+  height: 12px;
+  border-radius: 1px;
+}
+
+.uptime__tick--ok {
+  background: var(--ok);
+}
+
+.uptime__tick--bad {
+  background: var(--crit);
+}
+
+.uptime__text {
+  color: var(--text-4);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
 .button {
   display: inline-flex;
   align-items: center;

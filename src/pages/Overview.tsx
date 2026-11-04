@@ -66,6 +66,8 @@ export function OverviewPage({
   onNavigate: (tab: Tab) => void
 }) {
   const interfaces = health?.interfaces ?? []
+  const checkedCount = interfaces.filter((entry) => entry.status !== 'not_configured').length
+  const availableCount = interfaces.filter((entry) => entry.status === 'ok').length
 
   return (
     <PageShell
@@ -101,10 +103,10 @@ export function OverviewPage({
 
         <Card
           title="接口可用性"
-          subtitle="BFF 每次刷新健康时逐条探活（约 30 秒一轮）；延迟是 BFF 到该接口的往返，不是浏览器的。"
+          subtitle="逐条探活的一句话摘要；延迟、本次会话可用率、每条检查验了什么，在「接口可用性」页。"
           aside={
-            <Badge tone={health ? 'green' : 'gray'}>
-              {health ? `${interfaces.length} 条` : '未连上 BFF'}
+            <Badge tone={health ? (availableCount === checkedCount ? 'green' : 'red') : 'gray'}>
+              {health ? `${availableCount}/${checkedCount} 可用` : '未连上 BFF'}
             </Badge>
           }
         >
@@ -116,28 +118,17 @@ export function OverviewPage({
           ) : (
             <div className="table-wrap">
               <table className="table">
-                <thead>
-                  <tr>
-                    <th>接口</th>
-                    <th>状态</th>
-                    <th>延迟</th>
-                    <th>最近检查</th>
-                  </tr>
-                </thead>
                 <tbody>
                   {interfaces.map((entry) => (
                     <tr key={entry.id}>
                       <td>
                         <strong>{entry.label}</strong>
-                        {entry.url ? <div className="table__error">{entry.url}</div> : null}
-                      </td>
-                      <td>
-                        <Badge tone={toneFor(entry.status)}>{labelFor(entry.status)}</Badge>
                         {entry.detail ? <div className="table__error">{entry.detail}</div> : null}
                       </td>
                       <td>
-                        {entry.latency_ms === undefined ? '—' : `${entry.latency_ms} ms`}
+                        <Badge tone={toneFor(entry.status)}>{labelFor(entry.status)}</Badge>
                       </td>
+                      <td>{entry.latency_ms === undefined ? '—' : `${entry.latency_ms} ms`}</td>
                       <td>{formatRelativeTime(entry.checked_at_ms)}</td>
                     </tr>
                   ))}
@@ -145,6 +136,13 @@ export function OverviewPage({
               </table>
             </div>
           )}
+          <button
+            type="button"
+            className="button button--ghost button--sm"
+            onClick={() => onNavigate('health')}
+          >
+            打开接口可用性
+          </button>
         </Card>
 
         <Card

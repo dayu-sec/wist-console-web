@@ -3,12 +3,13 @@ import { ApiError, getHealth, type ConsoleHealth } from './api'
 import { Shell, type Tab } from './components/Shell'
 import { EvidenceDetailPage } from './pages/EvidenceDetailPage'
 import { EvidencePage } from './pages/EvidencePage'
+import { HealthPage } from './pages/HealthPage'
 import { OverviewPage } from './pages/Overview'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { IngestPage } from './pages/IngestPage'
 import { TopologyPage } from './pages/TopologyPage'
 
-const TABS: Tab[] = ['overview', 'evidence', 'topology', 'metrics', 'devices', 'ingest']
+const TABS: Tab[] = ['overview', 'evidence', 'topology', 'metrics', 'health', 'devices', 'ingest']
 
 interface Route {
   tab: Tab
@@ -108,6 +109,16 @@ export default function App() {
       ) : null}
 
       {route.tab === 'topology' ? <TopologyPage /> : null}
+
+      {route.tab === 'health' ? (
+        <HealthPage
+          health={health}
+          error={healthError}
+          syncing={syncing}
+          lastSyncedAt={lastSyncedAt}
+          onRefresh={() => void refresh()}
+        />
+      ) : null}
 
       {route.tab === 'metrics' ? (
         <PlaceholderPage

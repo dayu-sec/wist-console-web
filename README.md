@@ -1,6 +1,6 @@
 # wist-console-web（星象台）
 
-计算区**只读**界面：**证据 / 资产拓扑 / 运行指标 / 安全设备** 一个入口。
+计算区**只读**界面：**证据 / 资产拓扑 / 运行指标 / 接口可用性 / 安全设备** 一个入口。
 
 > 展示名「星象台」：观测用，不动手（不重启、不发布、不处置）。
 > 技术名保持 `wist-console`（仓名 / 镜像名 / 服务名不跟着改）。
@@ -19,10 +19,11 @@
 
 | 页面 | 状态 | 数据源 |
 |---|---|---|
-| 概览 | 可用 | `GET /api/health`（各数据源就绪度） |
+| 概览 | 可用 | `GET /api/health`（各数据源就绪度 + 接口可用性摘要） |
 | 证据 | 可用 | `GET /api/evidence`、`GET /api/evidence/{id}`、`POST /api/evidence/{id}:presign` |
 | 资产拓扑 | 嵌入 | 同源 `/atlas/`（`wist-atlas-web`） |
 | 运行指标 | 占位 | 平台侧尚无聚合（现网的 VM 在各网关栈里） |
+| 接口可用性 | 可用 | `GET /api/health.interfaces[]`：逐条探活 + 本次会话可用率 |
 | 安全设备 | 占位 | `containment_capabilities` 尚未上报 |
 
 **占位页不是"待美化"，是"没数据源"**：缺什么、按什么顺序接，页面上都写出来了。
@@ -31,7 +32,8 @@
 
 ```text
 GET  /api/health
-     → { status, version?, sources: { evidence|atlas|metrics|devices: { status, detail? } } }
+     → { status, version?, sources: { evidence|atlas|metrics|devices: { status, detail? } },
+         interfaces: [{ id, label, covers, url?, status, detail?, latency_ms?, checked_at_ms? }] }
 
 GET  /api/evidence?subject_id=&kind=&since=&limit=&cursor=
      → { artifacts: [EvidenceArtifact], next_cursor }
