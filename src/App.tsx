@@ -5,9 +5,10 @@ import { EvidenceDetailPage } from './pages/EvidenceDetailPage'
 import { EvidencePage } from './pages/EvidencePage'
 import { OverviewPage } from './pages/Overview'
 import { PlaceholderPage } from './pages/PlaceholderPage'
+import { IngestPage } from './pages/IngestPage'
 import { TopologyPage } from './pages/TopologyPage'
 
-const TABS: Tab[] = ['overview', 'evidence', 'topology', 'metrics', 'devices']
+const TABS: Tab[] = ['overview', 'evidence', 'topology', 'metrics', 'devices', 'ingest']
 
 interface Route {
   tab: Tab
@@ -124,6 +125,8 @@ export default function App() {
           ]}
         />
       ) : null}
+
+      {route.tab === 'ingest' ? <IngestPage /> : null}
 
       {route.tab === 'devices' ? (
         <PlaceholderPage

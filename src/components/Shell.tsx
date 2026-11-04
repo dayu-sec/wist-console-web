@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../format'
 import { toggleAppTheme, useAppTheme } from '../theme'
 
-export type Tab = 'overview' | 'evidence' | 'topology' | 'metrics' | 'devices'
+export type Tab = 'overview' | 'evidence' | 'topology' | 'metrics' | 'devices' | 'ingest'
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: '概览',
@@ -10,6 +10,7 @@ const TAB_LABELS: Record<Tab, string> = {
   topology: '资产拓扑',
   metrics: '运行指标',
   devices: '安全设备',
+  ingest: '数据面接入',
 }
 
 const TAB_GROUPS: { label: string; items: { tab: Tab; icon: ReactNode }[] }[] = [
@@ -30,6 +31,10 @@ const TAB_GROUPS: { label: string; items: { tab: Tab; icon: ReactNode }[] }[] = 
       { tab: 'metrics', icon: <IconMetrics /> },
       { tab: 'devices', icon: <IconDevice /> },
     ],
+  },
+  {
+    label: '接入',
+    items: [{ tab: 'ingest', icon: <IconIngest /> }],
   },
 ]
 
@@ -71,6 +76,15 @@ function IconMetrics() {
       <rect x="3.2" y="8.4" width="2.6" height="5" rx="0.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
       <rect x="6.9" y="5.4" width="2.6" height="8" rx="0.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
       <rect x="10.6" y="2.6" width="2.6" height="10.8" rx="0.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
+
+function IconIngest() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+      <path d="M8 1.8v6.4M5.2 5.4 8 8.2l2.8-2.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.6 9.6v2.4a2 2 0 0 0 2 2h6.8a2 2 0 0 0 2-2V9.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }

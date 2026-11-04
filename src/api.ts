@@ -142,3 +142,23 @@ export function presignEvidence(artifactId: string): Promise<PresignResult> {
     { method: 'POST' },
   )
 }
+
+export interface IntegrationInfo {
+  evidence: {
+    write_url: string
+    auth: string
+    username_is_token: boolean
+    tenant: string
+    allowed_kinds: string[]
+    frame_marker: string
+  }
+  warp_parse: {
+    connector: string
+    sink_group: string
+    env: Record<string, string>
+  }
+}
+
+export function getIntegration(): Promise<IntegrationInfo> {
+  return request<IntegrationInfo>('/api/integration')
+}
