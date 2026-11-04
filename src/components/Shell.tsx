@@ -126,8 +126,8 @@ export function Shell({ tab, onTab, connected, syncing, lastSyncedAt, onRefresh,
         <div className="brand">
           <BrandMark />
           <span className="brand-copy">
-            <span className="brand-text">WistConsole</span>
-            <span className="brand-sub">计算区运维台</span>
+            <span className="brand-text">星象台</span>
+            <span className="brand-sub">证据与观测</span>
           </span>
         </div>
 

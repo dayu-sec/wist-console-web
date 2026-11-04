@@ -67,7 +67,7 @@ export function OverviewPage({
   return (
     <PageShell
       title="概览"
-      summary="计算区运维台：证据、资产、运行指标、设备状态。每块都标了「数据从哪来、接没接上」。"
+      summary="星象台（只读）：证据、资产拓扑、运行指标、设备状态。每块都标了「数据从哪来、接没接上」。"
     >
       {error ? <ErrorBanner>{error}</ErrorBanner> : null}
 
