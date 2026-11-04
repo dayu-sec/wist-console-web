@@ -175,30 +175,6 @@ export function HealthPage({
           )}
         </Card>
 
-        <Card
-          title="怎么读这张表"
-          subtitle="「绿」只代表 BFF 这一侧的这一次请求成功 —— 它证不了整条链路"
-        >
-          <ul className="bullets">
-            <li>
-              <strong>证据读端点</strong>是**真读**一次 <code className="mono">GET /internal/evidence?limit=1</code>：
-              鉴权、租户与敏感度闸、PG 索引都会走到。它挂了，证据页就是空的。
-            </li>
-            <li>
-              <strong>证据写端点</strong>只验写监听端口是否就绪 —— 不发测试写入（不往证据库里塞垃圾）。
-              数据面到它那个内网地址的**网络可达性只能由数据面自己验证**；BFF 到不了那个地址。
-            </li>
-            <li>
-              <strong>资产拓扑 API</strong> 打 <code className="mono">/healthz</code>：只看进程是否就绪，
-              不拿一次业务查询冒充探活。
-            </li>
-            <li>
-              <strong>浏览器这一段</strong>不需要单独探：能显示这张表，就说明
-              浏览器 → console-web → BFF 是通的。
-            </li>
-          </ul>
-        </Card>
-
         <InfoBanner tone="info">
           「本次会话」的可用率只统计这个页面打开之后的检查（最多 30 次），刷新页面会重来 ——
           这里是现场自查，不是长期趋势；历史趋势要等运行指标接了平台侧聚合。
