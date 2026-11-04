@@ -1,6 +1,6 @@
 import type { ConsoleHealth } from '../api'
 import type { Tab } from '../components/Shell'
-import { Badge, Card, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
+import { Badge, Block, Card, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
 
 const SOURCES: { key: string; tab: Tab; label: string; hint: string }[] = [
   {
@@ -69,9 +69,10 @@ export function OverviewPage({
       title="概览"
       summary="星象台（只读）：证据、资产拓扑、运行指标、设备状态。每块都标了「数据从哪来、接没接上」。"
     >
-      {error ? <ErrorBanner>{error}</ErrorBanner> : null}
+      <Block wide>
+        {error ? <ErrorBanner>{error}</ErrorBanner> : null}
 
-      <div className="grid">
+        <div className="grid">
         {SOURCES.map((source) => {
           const state = health?.sources?.[source.key]
           const status = state?.status ?? (health ? 'unavailable' : 'unknown')
@@ -93,9 +94,9 @@ export function OverviewPage({
             </Card>
           )
         })}
-      </div>
+        </div>
 
-      <Card
+        <Card
         title="这个台子不做什么"
         subtitle="边界写在 design/console/console-architecture.md；这三条守不住就会退化成第二个 center"
       >
@@ -104,7 +105,8 @@ export function OverviewPage({
           <li>不代替证据服务做判断 —— 租户、敏感度、保留期由证据服务裁决，BFF 只透传。</li>
           <li>不成为新的账号体系 —— 身份来自入口（VPN / 堡垒机）与 mTLS，不在本台另建用户。</li>
         </ul>
-      </Card>
+        </Card>
+      </Block>
     </PageShell>
   )
 }

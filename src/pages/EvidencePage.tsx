@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, listEvidence, type EvidenceArtifact } from '../api'
 import { formatBytes, formatDateTime } from '../format'
-import { Badge, Empty, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
+import { Badge, Block, Empty, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
 
 const KINDS = [
   { value: '', label: '全部类型' },
@@ -73,14 +73,15 @@ export function EvidencePage({
         </button>
       }
     >
+      <Block wide>
       <form
-        className="grid"
+        className="filter-bar"
         onSubmit={(event) => {
           event.preventDefault()
           onQuery({ subjectId: subject.trim(), kind: selectedKind })
         }}
       >
-        <label className="field">
+        <label className="filter-field">
           <span className="field__label">主机 / 主体</span>
           <input
             value={subject}
@@ -88,7 +89,7 @@ export function EvidencePage({
             placeholder="agent-7f3，留空为全部"
           />
         </label>
-        <label className="field">
+        <label className="filter-field">
           <span className="field__label">类型</span>
           <select
             value={selectedKind}
@@ -101,7 +102,7 @@ export function EvidencePage({
             ))}
           </select>
         </label>
-        <div className="field">
+        <div className="filter-field">
           <span className="field__label">操作</span>
           <button type="submit" className="button button--primary">
             查询
@@ -172,6 +173,7 @@ export function EvidencePage({
           </table>
         </div>
       ) : null}
+      </Block>
     </PageShell>
   )
 }

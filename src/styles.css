@@ -1726,3 +1726,42 @@ a:focus-visible {
   border-radius: var(--radius);
   background: var(--bg-elevated);
 }
+
+/* ============================================================================
+ * console-web 追加：筛选条 / 内联徽标
+ *
+ * `.field` 是 `display: contents`（用于 .kv 的两列栅格），不能直接放进 grid 当一列；
+ * 筛选条用独立的 flex 列。
+ * ========================================================================== */
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.filter-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.filter-field .field__label {
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.stack-inline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 720px) {
+  .filter-bar {
+    grid-template-columns: 1fr;
+  }
+}
