@@ -1,6 +1,6 @@
 # wist-console-web
 
-计算区运维台：**证据 / 资产拓扑 / 采集量 / 安全设备** 一个入口。
+计算区运维台：**证据 / 资产拓扑 / 运行指标 / 安全设备** 一个入口。
 
 - 后端：`wist-console`（BFF），浏览器只跟它说话
 - 部署：`wist-console-stack`（计算区，经 VPN / 堡垒机进入）
@@ -19,7 +19,7 @@
 | 概览 | 可用 | `GET /api/health`（各数据源就绪度） |
 | 证据 | 可用 | `GET /api/evidence`、`GET /api/evidence/{id}`、`POST /api/evidence/{id}:presign` |
 | 资产拓扑 | 嵌入 | 同源 `/atlas/`（`wist-atlas-web`） |
-| 采集量 | 占位 | 平台侧尚无聚合（现网的 VM 在各网关栈里） |
+| 运行指标 | 占位 | 平台侧尚无聚合（现网的 VM 在各网关栈里） |
 | 安全设备 | 占位 | `containment_capabilities` 尚未上报 |
 
 **占位页不是"待美化"，是"没数据源"**：缺什么、按什么顺序接，页面上都写出来了。
@@ -28,7 +28,7 @@
 
 ```text
 GET  /api/health
-     → { status, version?, sources: { evidence|atlas|pipeline|devices: { status, detail? } } }
+     → { status, version?, sources: { evidence|atlas|metrics|devices: { status, detail? } } }
 
 GET  /api/evidence?subject_id=&kind=&since=&limit=&cursor=
      → { artifacts: [EvidenceArtifact], next_cursor }

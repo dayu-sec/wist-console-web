@@ -2,13 +2,13 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { formatRelativeTime } from '../format'
 import { toggleAppTheme, useAppTheme } from '../theme'
 
-export type Tab = 'overview' | 'evidence' | 'topology' | 'pipeline' | 'devices'
+export type Tab = 'overview' | 'evidence' | 'topology' | 'metrics' | 'devices'
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: '概览',
   evidence: '证据',
   topology: '资产拓扑',
-  pipeline: '采集量',
+  metrics: '运行指标',
   devices: '安全设备',
 }
 
@@ -27,7 +27,7 @@ const TAB_GROUPS: { label: string; items: { tab: Tab; icon: ReactNode }[] }[] = 
   {
     label: '运行',
     items: [
-      { tab: 'pipeline', icon: <IconPipeline /> },
+      { tab: 'metrics', icon: <IconMetrics /> },
       { tab: 'devices', icon: <IconDevice /> },
     ],
   },
@@ -64,10 +64,13 @@ function IconTopology() {
   )
 }
 
-function IconPipeline() {
+function IconMetrics() {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-      <path d="M2.4 3.4h11.2L9.2 8.6v4.1H6.8V8.6Z" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M2.2 13.4h11.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="3.2" y="8.4" width="2.6" height="5" rx="0.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="6.9" y="5.4" width="2.6" height="8" rx="0.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="10.6" y="2.6" width="2.6" height="10.8" rx="0.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   )
 }
@@ -124,7 +127,7 @@ export function Shell({ tab, onTab, connected, syncing, lastSyncedAt, onRefresh,
           <BrandMark />
           <span className="brand-copy">
             <span className="brand-text">WistConsole</span>
-            <span className="brand-sub">证据与资产</span>
+            <span className="brand-sub">计算区运维台</span>
           </span>
         </div>
 

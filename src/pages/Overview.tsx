@@ -16,10 +16,10 @@ const SOURCES: { key: string; tab: Tab; label: string; hint: string }[] = [
     hint: 'wist-atlas：主机 / 服务 / 进程关系（同源嵌入 /atlas/）',
   },
   {
-    key: 'pipeline',
-    tab: 'pipeline',
-    label: '采集量',
-    hint: '各网关栈的 VictoriaMetrics；平台侧还没有聚合，这条未接入',
+    key: 'metrics',
+    tab: 'metrics',
+    label: '运行指标',
+    hint: 'wparse 的来源/PARSE/输出计数与主机采集健康；现网 VM 在各网关栈，平台侧还没有聚合',
   },
   {
     key: 'devices',
@@ -67,7 +67,7 @@ export function OverviewPage({
   return (
     <PageShell
       title="概览"
-      summary="计算区运维台：证据、资产、采集量、设备状态。每块都标了「数据从哪来、接没接上」。"
+      summary="计算区运维台：证据、资产、运行指标、设备状态。每块都标了「数据从哪来、接没接上」。"
     >
       {error ? <ErrorBanner>{error}</ErrorBanner> : null}
 
