@@ -798,6 +798,15 @@ a:focus-visible {
   flex: 0 0 auto;
 }
 
+/* 卡片里的编号步骤（初始化前的说明用）：开箱即用的引导不该要读者自己排版。 */
+.card__steps {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
 .metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

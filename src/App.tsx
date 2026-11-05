@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ApiError, getHealth, type ConsoleHealth } from './api'
 import { UNAUTHORIZED_EVENT, getToken } from './auth'
 import { Shell, type Tab } from './components/Shell'
+import { InitGate } from './components/InitGate'
 import { TokenGate } from './components/TokenGate'
 import { EvidenceDetailPage } from './pages/EvidenceDetailPage'
 import { EvidencePage } from './pages/EvidencePage'
@@ -46,6 +47,10 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
   // 没有令牌就不进界面：任何 401 都会把这里重置成 true（见 `auth.ts` 的广播）。
   const [needToken, setNeedToken] = useState(() => !getToken())
+  // 还没接入凭据中心：BFF 对 `/api/*` 回 503 `peer_not_initialized`。
+  // 这一档要排在令牌之前 —— 没材料时拿着令牌也什么都进不去。
+  const [initRequired, setInitRequired] = useState(false)
+  const [initDetail, setInitDetail] = useState<string | null>(null)
 
   useEffect(() => {
     const onUnauthorized = () => setNeedToken(true)
@@ -65,9 +70,14 @@ export default function App() {
       const value = await getHealth()
       setHealth(value)
       setHealthError(null)
+      setInitRequired(false)
+      setInitDetail(null)
       setLastSyncedAt(Date.now())
     } catch (err) {
       setHealth(null)
+      const notInitialized = err instanceof ApiError && err.code === 'peer_not_initialized'
+      setInitRequired(notInitialized)
+      setInitDetail(notInitialized && err instanceof ApiError ? err.message : null)
       setHealthError(err instanceof ApiError ? `${err.message}（${err.code}）` : String(err))
     } finally {
       setSyncing(false)
@@ -82,6 +92,16 @@ export default function App() {
   }, [refresh])
 
   const connected = health !== null
+
+  if (initRequired) {
+    return (
+      <InitGate
+        onRetry={() => void refresh()}
+        retrying={syncing}
+        detail={initDetail}
+      />
+    )
+  }
 
   if (needToken) {
     return (
