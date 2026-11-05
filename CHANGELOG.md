@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.14 · 2026-11-06
+
+- **数据面接入按通道分页**：证据 / Atlas / 运行指标各自独立 tab（`#/ingest`、`#/ingest/atlas`、
+  `#/ingest/metrics`），端点、字段约定与可复制配置各看各的。
+- **不再要求新建 connector**：证据与 atlas 的配置都直接复用现成的 `http_sink`，
+  只覆盖 `endpoint` / `fmt` / `headers` —— 少维护两份 `connectors/sink.d` 文件。
+- **新增「退出」**：顶部状态条右侧的电源按钮清掉本标签页的访问令牌并回到令牌入口。
+
 ## 0.1.13 · 2026-11-05
 
 - **令牌入口改用 `POST /api/login`**：先把令牌交给后端换身份（`subject / roles / expires_at`），
