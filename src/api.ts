@@ -250,9 +250,14 @@ export interface IntegrationInfo {
     record: Record<string, unknown>
   } | null
   warp_parse: {
-    connector: string
-    sink_group: string
+    /** 数据面进程要看到的环境变量（写端点地址）。 */
     env: Record<string, string>
+    /**
+     * 旧的连接器 / sink 分组样板。BFF 不再下发它们（接入页统一复用现有的
+     * `http_sink`，不再新建 connectors）；可选只是为了容下老 BFF 的响应。
+     */
+    connector?: string
+    sink_group?: string
   }
 }
 

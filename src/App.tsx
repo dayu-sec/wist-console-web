@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, getHealth, type ConsoleHealth } from './api'
-import { UNAUTHORIZED_EVENT, getToken } from './auth'
+import { UNAUTHORIZED_EVENT, clearToken, getToken } from './auth'
 import { Shell, type Tab } from './components/Shell'
 import { InitGate } from './components/InitGate'
 import { TokenGate } from './components/TokenGate'
@@ -93,6 +93,17 @@ export default function App() {
 
   const connected = health !== null
 
+  // 退出：令牌只在本标签页的 sessionStorage 里，清掉就回到入口。
+  // 先确认一手 —— 重新进入要再粘一次 `wcr_…`。
+  const signOut = useCallback(() => {
+    if (!window.confirm('退出并清除本标签页的访问令牌？\n重新进入需要再粘贴一次。')) return
+    clearToken()
+    setNeedToken(true)
+    setHealth(null)
+    setHealthError(null)
+    setLastSyncedAt(null)
+  }, [])
+
   if (initRequired) {
     return (
       <InitGate
@@ -122,6 +133,7 @@ export default function App() {
       syncing={syncing}
       lastSyncedAt={lastSyncedAt}
       onRefresh={() => void refresh()}
+      onSignOut={signOut}
     >
       {route.tab === 'overview' ? (
         <OverviewPage health={health} error={healthError} onNavigate={(tab) => navigate(`/${tab}`)} />

@@ -69,43 +69,47 @@ function envLines(env: Record<string, string>, keyPart: string): string {
     .join('\n')
 }
 
-/** atlas 连接器与证据同型，只是 `id` / `endpoint` 不同（BFF 目前只给 atlas 的写地址）。 */
-function atlasConnector(writeUrl: string): string {
-  return `[[connectors]]
-allow_override = ["endpoint", "headers", "fmt", "batch_size", "timeout_secs", "max_retries"]
-id = "atlas_sink"
-type = "http"
-
-[connectors.params]
-endpoint = "${writeUrl}"
-method = "POST"
-fmt = "json"
-batch_size = 1
-timeout_secs = 5
-max_retries = 3
-compression = "none"
-
-[connectors.params.headers]
-Content-Type = "application/json"`
-}
-
-function atlasSinkGroup(writeUrl: string): string {
+/**
+ * 入湖配置只给 **sink 分组**：连接器一律复用 `connectors/sink.d` 里现成的 `http_sink`，
+ * 不再为证据 / atlas 各建一个 `[[connectors]]`（那只是把同一份 http 参数拄了两次）。
+ * 实例侧只覆盖 `http_sink` 的 allow_override：endpoint / fmt / batch_size / headers。
+ */
+function httpSinkGroup({
+  name,
+  oml,
+  bizTag,
+  sinkName,
+  sinkTag,
+  endpoint,
+}: {
+  name: string
+  oml: string
+  bizTag: string
+  sinkName: string
+  sinkTag: string
+  endpoint: string
+}): string {
   return `[sink_group]
-name = "atlas-uplink"
-# 目标 OML：输出 cust_id / content（比证据少一个 cmd_id）
-oml = ["atlas_uplink"]
-tags = ["biz:atlas"]
+name = "${name}"
+oml = ["${oml}"]
+tags = ["biz:${bizTag}"]
 batch_size = 1
 batch_timeout_ms = 300
 
 [[sink_group.sinks]]
-name = "atlas"
-connect = "atlas_sink"
-tags = ["sink:atlas"]
+name = "${sinkName}"
+# 现成的 http 连接器（connectors/sink.d 里已有），不新增 connectors。
+connect = "http_sink"
+tags = ["sink:${sinkTag}"]
 
 [sink_group.sinks.params]
-endpoint = "${writeUrl}"
-batch_size = 1`
+endpoint = "${endpoint}"
+fmt = "json"
+batch_size = 1
+timeout_secs = 5
+
+[sink_group.sinks.params.headers]
+Content-Type = "application/json"`
 }
 
 const METRICS_SINK_GROUP = `[sink_group]
@@ -181,21 +185,24 @@ function EvidencePanel({ info }: { info: IntegrationInfo }) {
       </Card>
 
       <InfoBanner>
-        连接器只负责 POST、<strong>不做字段映射</strong>：发出去的就是 OML 的输出，
-        所以 OML 必须产出 <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>。
-        连接器没有 TLS 参数，写端口只在内网开放。
+        <strong>不新建连接器</strong>：直接用现成的 <Mono>http_sink</Mono>（在{' '}
+        <Mono>connectors/sink.d</Mono> 里已有），sink 实例只覆盖 endpoint 等参数。
+        发出去的就是 OML 的输出（不做字段映射），所以 OML 必须产出 <Mono>cust_id</Mono> /{' '}
+        <Mono>cmd_id</Mono> / <Mono>content</Mono>。连接器没有 TLS 参数，写端口只在内网开放。
       </InfoBanner>
 
       <div className="stack">
         <CodeBlock
-          label="connectors/sink.d/30-evidence_sink.toml"
-          hint="连接器：怎么连（不做字段映射、不需要认证）"
-          code={info.warp_parse.connector}
-        />
-        <CodeBlock
           label="topology/sinks/business.d/evidence_uplink.toml"
-          hint="sink 分组：绑定输出三字段的 OML，batch_size = 1"
-          code={info.warp_parse.sink_group}
+          hint="sink 分组：复用现成的 http_sink，只覆盖 endpoint / fmt；不用再定义 connectors"
+          code={httpSinkGroup({
+            name: 'evidence-uplink',
+            oml: 'evidence_uplink',
+            bizTag: 'evidence',
+            sinkName: 'evidence',
+            sinkTag: 'evidence',
+            endpoint: info.evidence.write_url,
+          })}
         />
         {evidenceEnv ? (
           <CodeBlock
@@ -266,14 +273,16 @@ function AtlasPanel({ info }: { info: IntegrationInfo }) {
 
       <div className="stack">
         <CodeBlock
-          label="connectors/sink.d/40-atlas_sink.toml"
-          hint="连接器：与证据同型，只换 endpoint（不做字段映射、不需要认证）"
-          code={atlasConnector(atlas.write_url)}
-        />
-        <CodeBlock
           label="topology/sinks/business.d/atlas_uplink.toml"
-          hint="sink 分组：绑定输出两字段的 OML，batch_size = 1"
-          code={atlasSinkGroup(atlas.write_url)}
+          hint="sink 分组：同样复用 http_sink，只覆盖 endpoint；不用再定义 connectors"
+          code={httpSinkGroup({
+            name: 'atlas-uplink',
+            oml: 'atlas_uplink',
+            bizTag: 'atlas',
+            sinkName: 'atlas',
+            sinkTag: 'atlas',
+            endpoint: atlas.write_url,
+          })}
         />
         {atlasEnv ? (
           <CodeBlock

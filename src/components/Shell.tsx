@@ -147,11 +147,22 @@ interface ShellProps {
   syncing: boolean
   lastSyncedAt: number | null
   onRefresh: () => void
+  /** 退出：清掉本标签页的访问令牌，回到令牌入口。 */
+  onSignOut: () => void
   children: ReactNode
 }
 
 /** 应用外壳：左侧导航 + 顶部常驻状态条 + 内容区（与 ingest-web / gateway-web 同一套结构）。 */
-export function Shell({ tab, onTab, connected, syncing, lastSyncedAt, onRefresh, children }: ShellProps) {
+export function Shell({
+  tab,
+  onTab,
+  connected,
+  syncing,
+  lastSyncedAt,
+  onRefresh,
+  onSignOut,
+  children,
+}: ShellProps) {
   const theme = useAppTheme()
   const [now, setNow] = useState(() => Date.now())
 
@@ -265,6 +276,19 @@ export function Shell({ tab, onTab, connected, syncing, lastSyncedAt, onRefresh,
             >
               <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
                 <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 1.5V5H10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              className="icon-button"
+              onClick={onSignOut}
+              title="退出（清除本标签页的访问令牌）"
+              aria-label="退出登录"
+            >
+              <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                <path d="M8 2.2v5.4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M4.6 4.4a5 5 0 1 0 6.8 0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             </button>
           </div>
