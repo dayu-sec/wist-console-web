@@ -143,6 +143,30 @@ export function getHealth(): Promise<ConsoleHealth> {
   return request<ConsoleHealth>('/api/health')
 }
 
+/** 登录的结果：把令牌换成「你是谁 + 给了什么角色」。 */
+export interface LoginResult {
+  credential_id: string
+  subject: string
+  roles: string[]
+  audience: string
+  /** Unix 秒。 */
+  expires_at: number
+}
+
+/**
+ * 校验访问令牌（`POST /api/login`，契约由 `wist-cred-peer` 统一）。
+ *
+ * 以前前端是“拿 `/api/health` 试一下”来验证令牌 —— 那只能知道能不能进，
+ * 不知道进来的是谁；失败时也只能按状态码猜原因。
+ */
+export function login(token: string): Promise<LoginResult> {
+  return request<LoginResult>('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+}
+
 export interface EvidenceQuery {
   subjectId?: string
   kind?: string

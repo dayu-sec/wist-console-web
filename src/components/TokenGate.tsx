@@ -4,7 +4,7 @@
 // 浏览器只负责把它带在 `Authorization: Bearer` 上。
 
 import { useState } from 'react'
-import { ApiError, getHealth } from '../api'
+import { ApiError, login } from '../api'
 import { clearToken, setToken } from '../auth'
 
 interface Props {
@@ -25,15 +25,16 @@ export function TokenGate({ onAuthenticated }: Props) {
     }
     setChecking(true)
     setError(null)
-    setToken(token)
     try {
-      // 用一次真请求确认这把 token 能进这个 console（而不是先放行再满屏 401）。
-      await getHealth()
+      // 先在**不存**令牌的情况下问一次“这串是谁”——`POST /api/login`。
+      // 存了才验的话，登录失败的瞬间其它页面已经开始拿它发请求了。
+      await login(token)
+      setToken(token)
       onAuthenticated()
     } catch (err) {
       clearToken()
       if (err instanceof ApiError) {
-        // 403 = token 有效但角色不够；401 = 不认识 / 过期 / 撤销。
+        // 403 = 令牌有效但角色不够；401 = 不认识 / 过期 / 撤销。
         setError(
           err.status === 403
             ? `这把令牌有效，但没有星象台的访问角色（${err.code}）`
