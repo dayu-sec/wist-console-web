@@ -38,6 +38,33 @@ function labelFor(status: string): string {
   }
 }
 
+/**
+ * 接口的**完整地址**。
+ *
+ * `health.interfaces[].url` 是 BFF 实际打的**探活地址**（写端点打 `/healthz`、
+ * 指标存储打 `/health`），不等于接口本身 —— 只看到 `/healthz` 等于没看到地址。
+ * 这里按各接口的契约路径补回真实地址，探活地址在下面单独一行展示。
+ */
+function interfaceAddress(item: InterfaceState): string | null {
+  if (!item.url) return null
+  switch (item.id) {
+    case 'evidence_read':
+      // 探活多带一个 `?limit=1`，接口地址是去掉查询的那一段。
+      return item.url.split('?')[0]
+    case 'evidence_write':
+      // 探活打 `/healthz`；真正的写接口是 `/internal/evidence`。
+      return item.url.replace(/\/healthz$/, '/internal/evidence')
+    case 'atlas':
+      // 探活打 `/healthz`；atlas 的读接口都在 `/api/*` 下（写端点是 `/internal/atlas`）。
+      return item.url.replace(/\/healthz$/, '/api')
+    case 'metrics':
+      // 探活打 `/health`；接口地址就是 VictoriaMetrics 的查询基址。
+      return item.url.replace(/\/health$/, '')
+    default:
+      return item.url
+  }
+}
+
 function averageLatency(samples: Sample[]): number | null {
   const values = samples.map((sample) => sample.latencyMs).filter((value): value is number => value !== null)
   if (values.length === 0) return null
@@ -151,24 +178,34 @@ export function HealthPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {interfaces.map((item: InterfaceState) => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong>{item.label}</strong>
-                        {item.url ? <div className="table__error">{item.url}</div> : null}
-                        {item.covers ? <div className="table__error">{item.covers}</div> : null}
-                      </td>
-                      <td>
-                        <Badge tone={toneFor(item.status)}>{labelFor(item.status)}</Badge>
-                        {item.detail ? <div className="table__error">{item.detail}</div> : null}
-                      </td>
-                      <td>{item.latency_ms === undefined ? '—' : `${item.latency_ms} ms`}</td>
-                      <td>
-                        <Uptime samples={history[item.id] ?? []} />
-                      </td>
-                      <td>{formatRelativeTime(item.checked_at_ms)}</td>
-                    </tr>
-                  ))}
+                  {interfaces.map((item: InterfaceState) => {
+                    const address = interfaceAddress(item)
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>{item.label}</strong>
+                          {address ? (
+                            <div className="table__address" title={address}>
+                              {address}
+                            </div>
+                          ) : null}
+                          {item.url && item.url !== address ? (
+                            <div className="table__meta">探活 {item.url}</div>
+                          ) : null}
+                          {item.covers ? <div className="table__meta">{item.covers}</div> : null}
+                        </td>
+                        <td>
+                          <Badge tone={toneFor(item.status)}>{labelFor(item.status)}</Badge>
+                          {item.detail ? <div className="table__error">{item.detail}</div> : null}
+                        </td>
+                        <td>{item.latency_ms === undefined ? '—' : `${item.latency_ms} ms`}</td>
+                        <td>
+                          <Uptime samples={history[item.id] ?? []} />
+                        </td>
+                        <td>{formatRelativeTime(item.checked_at_ms)}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

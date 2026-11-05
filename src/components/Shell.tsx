@@ -14,30 +14,24 @@ const TAB_LABELS: Record<Tab, string> = {
   ingest: '数据面接入',
 }
 
-const TAB_GROUPS: { label: string; items: { tab: Tab; icon: ReactNode }[] }[] = [
-  {
-    label: '取证',
-    items: [
-      { tab: 'overview', icon: <IconOverview /> },
-      { tab: 'evidence', icon: <IconEvidence /> },
-    ],
-  },
-  {
-    label: '资产',
-    items: [{ tab: 'topology', icon: <IconTopology /> }],
-  },
-  {
-    label: '运行',
-    items: [
-      { tab: 'metrics', icon: <IconMetrics /> },
-      { tab: 'health', icon: <IconHealth /> },
-      { tab: 'devices', icon: <IconDevice /> },
-    ],
-  },
-  {
-    label: '接入',
-    items: [{ tab: 'ingest', icon: <IconIngest /> }],
-  },
+/**
+ * 导航是**一条平铺的列表**，只用一条分隔线分成两段：
+ *   1. 数据域（概览 + 这个台子读的四类数据）—— 与概览页的四张卡一一对应；
+ *   2. 平台自身（接口自检 + 数据面怎么接进来）。
+ * 不再分「取证 / 资产 / 运行 / 接入」四组：层名和条名重复，而且会把
+ * 概览、安全设备这类不属于该层的东西塞进错的组里。
+ */
+const NAV_MAIN: { tab: Tab; icon: ReactNode }[] = [
+  { tab: 'overview', icon: <IconOverview /> },
+  { tab: 'evidence', icon: <IconEvidence /> },
+  { tab: 'topology', icon: <IconTopology /> },
+  { tab: 'metrics', icon: <IconMetrics /> },
+  { tab: 'devices', icon: <IconDevice /> },
+]
+
+const NAV_PLATFORM: { tab: Tab; icon: ReactNode }[] = [
+  { tab: 'health', icon: <IconHealth /> },
+  { tab: 'ingest', icon: <IconIngest /> },
 ]
 
 function IconOverview() {
@@ -48,6 +42,30 @@ function IconOverview() {
       <rect x="1.6" y="9.2" width="5.2" height="5.2" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
       <rect x="9.2" y="9.2" width="5.2" height="5.2" rx="1.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
+  )
+}
+
+function NavLink({
+  tab,
+  icon,
+  active,
+  onTab,
+}: {
+  tab: Tab
+  icon: ReactNode
+  active: boolean
+  onTab: (tab: Tab) => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`nav-link${active ? ' nav-link--active' : ''}`}
+      onClick={() => onTab(tab)}
+      aria-current={active ? 'page' : undefined}
+    >
+      <span className="nav-icon">{icon}</span>
+      {TAB_LABELS[tab]}
+    </button>
   )
 }
 
@@ -156,22 +174,24 @@ export function Shell({ tab, onTab, connected, syncing, lastSyncedAt, onRefresh,
         </div>
 
         <nav className="nav" aria-label="主导航">
-          {TAB_GROUPS.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <span className="nav-label">{group.label}</span>
-              {group.items.map((item) => (
-                <button
-                  key={item.tab}
-                  type="button"
-                  className={`nav-link${tab === item.tab ? ' nav-link--active' : ''}`}
-                  onClick={() => onTab(item.tab)}
-                  aria-current={tab === item.tab ? 'page' : undefined}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  {TAB_LABELS[item.tab]}
-                </button>
-              ))}
-            </div>
+          {NAV_MAIN.map((item) => (
+            <NavLink
+              key={item.tab}
+              tab={item.tab}
+              icon={item.icon}
+              active={tab === item.tab}
+              onTab={onTab}
+            />
+          ))}
+          <div className="nav-divider" role="separator" />
+          {NAV_PLATFORM.map((item) => (
+            <NavLink
+              key={item.tab}
+              tab={item.tab}
+              icon={item.icon}
+              active={tab === item.tab}
+              onTab={onTab}
+            />
           ))}
         </nav>
 

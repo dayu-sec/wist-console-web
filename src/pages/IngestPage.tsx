@@ -305,7 +305,7 @@ function MetricsPanel() {
         <div className="kv">
           <Field label="端点">
             同栈 <Mono>http://metrics:8428</Mono>；跨机{' '}
-            <Mono>http://&lt;console-stack 内网地址&gt;:&lt;VM_HOST_PORT&gt;</Mono>
+            <Mono>{'http://<console-stack 内网地址>:<VM_HOST_PORT>'}</Mono>
             <span className="muted">（栈默认 18428）</span>
           </Field>
           <Field label="注入方式">

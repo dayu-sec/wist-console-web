@@ -414,21 +414,14 @@ a:focus-visible {
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.nav-group {
-  display: flex;
-  flex-direction: column;
   gap: 2px;
 }
 
-.nav-label {
-  padding: 0 10px 7px;
-  color: var(--text-4);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+/* 平铺列表里唯一的分隔：数据域 / 平台自身。 */
+.nav-divider {
+  height: 1px;
+  margin: 10px;
+  background: var(--border);
 }
 
 .nav-link {
@@ -757,6 +750,89 @@ a:focus-visible {
 }
 
 /* ============================================================================
+ * 概览：域状态小卡 + 一行汇总
+ *
+ * 四张卡只回答「接没接上」，整张卡可点；逐条探活在它自己的页。
+ * ========================================================================== */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(196px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.tile:hover {
+  border-color: var(--accent-border);
+  background: var(--surface-2);
+}
+
+.tile:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+.tile__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.tile__label {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tile__detail {
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.statusline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 11px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.statusline__label {
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.statusline__note {
+  color: var(--text-3);
+  font-size: 12.5px;
+}
+
+/* 推到底部右侧；窄屏换行时仍然自己占一行。 */
+.statusline .button {
+  margin-left: auto;
+}
+
+/* ============================================================================
  * 基元：卡片 / 指标 / 键值 / 表格 / 按钮 / 徽标 / 横幅
  * ========================================================================== */
 
@@ -1007,6 +1083,27 @@ a:focus-visible {
   font-size: 11px;
   line-height: 1.45;
   white-space: normal;
+}
+
+/* 接口的完整地址：比探活地址重要，对比度和字号都高于脚注；长 URL 必须能断开显示。 */
+.table__address {
+  margin-top: 4px;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+/* 探活的真实请求地址 / 这条接口验到了哪一层。 */
+.table__meta {
+  margin-top: 3px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 /* 接口可用性：本次会话的逐次结果（最老在左，最新在右） */
@@ -1765,13 +1862,8 @@ a:focus-visible {
     gap: 10px;
   }
 
-  .nav-group {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .nav-label {
+  /* 横排时不需要分隔线（否则会变成一根竖线，反而抢视线）。 */
+  .nav-divider {
     display: none;
   }
 
