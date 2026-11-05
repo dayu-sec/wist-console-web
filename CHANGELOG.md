@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.1.11 · 2026-11-05
+
+- `/atlas/api/*` 改走 BFF（`/api/atlas/*`）而不是直连 atlas-web 的 `/api`：
+  资产拓扑的数据面从此与其它接口同一道门（令牌校验），不再从 nginx 裸奔。
+- `/api` 与 `/atlas/api/` 显式透传 `Authorization`（变量式 `proxy_pass` 下更不容易出意外）。
+
 ## 0.1.10 · 2026-11-05
 
 - **新增访问令牌入口**：BFF 改成按 `wist-cred` 的访问令牌认证，页面打开时要求粘贴
