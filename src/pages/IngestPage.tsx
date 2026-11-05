@@ -1,6 +1,25 @@
 import { useEffect, useState } from 'react'
 import { ApiError, getIntegration, type IntegrationInfo } from '../api'
-import { Card, ErrorBanner, Field, InfoBanner, Mono, PageShell } from '../components/ui'
+import { Badge, Block, Card, ErrorBanner, Field, InfoBanner, Mono, PageShell } from '../components/ui'
+
+/**
+ * 数据面入湖的**三条独立通道**：证据 / 资产拓扑（atlas）/ 运行指标。
+ *
+ * 三者各有各的端点与信封（证据三字段、atlas 两字段、指标走 VM 的 JSON line），
+ * 所以按 tab 分开，而不是堆在同一页里让人自己挑哪段配置是自己的。
+ */
+export type IngestChannel = 'evidence' | 'atlas' | 'metrics'
+
+const CHANNELS: { id: IngestChannel; label: string; hint: string }[] = [
+  { id: 'evidence', label: '证据', hint: 'cust_id / cmd_id / content' },
+  { id: 'atlas', label: 'Atlas', hint: 'cust_id / content（资产快照）' },
+  { id: 'metrics', label: '运行指标', hint: 'VictoriaMetrics 计数' },
+]
+
+function normalizeChannel(raw: string | undefined): IngestChannel {
+  const hit = CHANNELS.find((channel) => channel.id === raw)
+  return hit ? hit.id : 'evidence'
+}
 
 /** 代码块：用设计令牌里现成的 `.codeblock` 结构（header + 可滚动 pre）。 */
 function CodeBlock({
@@ -42,9 +61,306 @@ function CodeBlock({
   )
 }
 
-export function IngestPage() {
+/** 只取这条通道自己的环境变量；一条都没有时返回空串（调用方自行决定要不要显示）。 */
+function envLines(env: Record<string, string>, keyPart: string): string {
+  return Object.entries(env)
+    .filter(([key]) => key.includes(keyPart))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')
+}
+
+/** atlas 连接器与证据同型，只是 `id` / `endpoint` 不同（BFF 目前只给 atlas 的写地址）。 */
+function atlasConnector(writeUrl: string): string {
+  return `[[connectors]]
+allow_override = ["endpoint", "headers", "fmt", "batch_size", "timeout_secs", "max_retries"]
+id = "atlas_sink"
+type = "http"
+
+[connectors.params]
+endpoint = "${writeUrl}"
+method = "POST"
+fmt = "json"
+batch_size = 1
+timeout_secs = 5
+max_retries = 3
+compression = "none"
+
+[connectors.params.headers]
+Content-Type = "application/json"`
+}
+
+function atlasSinkGroup(writeUrl: string): string {
+  return `[sink_group]
+name = "atlas-uplink"
+# 目标 OML：输出 cust_id / content（比证据少一个 cmd_id）
+oml = ["atlas_uplink"]
+tags = ["biz:atlas"]
+batch_size = 1
+batch_timeout_ms = 300
+
+[[sink_group.sinks]]
+name = "atlas"
+connect = "atlas_sink"
+tags = ["sink:atlas"]
+
+[sink_group.sinks.params]
+endpoint = "${writeUrl}"
+batch_size = 1`
+}
+
+const METRICS_SINK_GROUP = `[sink_group]
+name = "monitor"
+batch_size = 1
+batch_timeout_ms = 300
+
+[[sink_group.sinks]]
+connect = "file_proto_text_sink"
+
+[sink_group.sinks.params]
+file = "monitor.dat"
+
+[sink_group.sinks.expect]
+max = 1.0
+
+# 统计指标镜像到 VictoriaMetrics。
+[[sink_group.sinks]]
+name = "metrics_vmetrics_sink"
+connect = "victoriametrics_sink"
+tags = ["sink:vmetrics"]
+
+[sink_group.sinks.params]
+endpoint = "\${WIST_METRICS_ENDPOINT}"`
+
+const METRICS_ENV = `WIST_METRICS_ENDPOINT=http://<console-stack 内网地址>:<VM_HOST_PORT>`
+
+function FailureCard({ dedupe }: { dedupe: string }) {
+  return (
+    <Card title="失败与重试" subtitle="别把它当“必达”">
+      <ul className="bullets">
+        <li>非 2xx 会被连接器重试 3 次，仍失败落 rescue 文件（可见、可人工重放）。</li>
+        <li>重复投递是安全的：{dedupe}</li>
+        <li>400 / 401 / 403 / 413 / 422 是配置或数据问题，重试不会变好。</li>
+      </ul>
+    </Card>
+  )
+}
+
+function EvidencePanel({ info }: { info: IntegrationInfo }) {
+  const evidenceEnv = envLines(info.warp_parse.env, 'EVIDENCE')
+  return (
+    <>
+      <Card
+        title="写端点"
+        subtitle="数据面（warp-parse）直投的地址；明文 HTTP，只在同一内网开放"
+        aside={<Badge tone="blue">POST</Badge>}
+      >
+        <div className="kv">
+          <Field label="地址">
+            <Mono>{info.evidence.write_url}</Mono>
+          </Field>
+          <Field label="认证">
+            无（<Mono>auth = "none"</Mono>，内网可信）；将来换成 HTTPS 双向认证
+          </Field>
+          <Field label="客户">
+            <Mono>{info.evidence.customer}</Mono>
+            <span className="muted">（租户就是客户）</span>
+          </Field>
+          <Field label="允许的 kind">
+            <span className="stack-inline">
+              {info.evidence.allowed_kinds.map((kind) => (
+                <span key={kind} className="badge badge--gray">
+                  {kind}
+                </span>
+              ))}
+            </span>
+          </Field>
+          <Field label="三字段">
+            <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>
+          </Field>
+        </div>
+      </Card>
+
+      <InfoBanner>
+        连接器只负责 POST、<strong>不做字段映射</strong>：发出去的就是 OML 的输出，
+        所以 OML 必须产出 <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>。
+        连接器没有 TLS 参数，写端口只在内网开放。
+      </InfoBanner>
+
+      <div className="stack">
+        <CodeBlock
+          label="connectors/sink.d/30-evidence_sink.toml"
+          hint="连接器：怎么连（不做字段映射、不需要认证）"
+          code={info.warp_parse.connector}
+        />
+        <CodeBlock
+          label="topology/sinks/business.d/evidence_uplink.toml"
+          hint="sink 分组：绑定输出三字段的 OML，batch_size = 1"
+          code={info.warp_parse.sink_group}
+        />
+        {evidenceEnv ? (
+          <CodeBlock
+            label="环境变量（数据面进程可见）"
+            hint="只有写端点地址；auth = none 时不需要 token"
+            code={evidenceEnv}
+          />
+        ) : null}
+        <CodeBlock
+          label="请求体（三字段）"
+          hint="content 给字符串或 JSON 对象都行；cust_id 同时就是分区键"
+          code={JSON.stringify(info.evidence.record, null, 2)}
+        />
+      </div>
+
+      <FailureCard dedupe="同 cust_id + cmd_id 同内容回 200 + 同一个 artifact_id。" />
+    </>
+  )
+}
+
+function AtlasPanel({ info }: { info: IntegrationInfo }) {
+  const atlas = info.atlas ?? null
+  const atlasEnv = envLines(info.warp_parse.env, 'ATLAS')
+
+  if (!atlas) {
+    return (
+      <InfoBanner tone="warn">
+        BFF 没配 <Mono>atlas.sink_url</Mono>，所以这里拿不到资产拓扑的写地址。
+        在 console 的 <Mono>console.toml</Mono> 里补上 <Mono>[atlas]</Mono> 段的{' '}
+        <Mono>sink_url</Mono>（数据面视角的 <Mono>/internal/atlas</Mono>）后重启 BFF 即可。
+      </InfoBanner>
+    )
+  }
+
+  return (
+    <>
+      <Card
+        title="写端点"
+        subtitle="资产快照直投的地址；两字段，没有 cmd_id"
+        aside={<Badge tone="blue">POST</Badge>}
+      >
+        <div className="kv">
+          <Field label="地址">
+            <Mono>{atlas.write_url}</Mono>
+          </Field>
+          <Field label="认证">
+            无（<Mono>auth = "none"</Mono>，内网可信）；将来换成 HTTPS 双向认证
+          </Field>
+          <Field label="租户">
+            <Mono>{atlas.customer}</Mono>
+            <span className="muted">（atlas 租户 UUID，不是客户号）</span>
+          </Field>
+          <Field label="两字段">
+            <Mono>cust_id</Mono> / <Mono>content</Mono>
+          </Field>
+          <Field label="幂等键">
+            快照里的 <Mono>snap_id</Mono>
+            <span className="muted">（证据服务的 cmd_id 在这里不存在）</span>
+          </Field>
+        </div>
+      </Card>
+
+      <InfoBanner>
+        <Mono>content</Mono> 就是网关 <Mono>agent-discovery.jsonl</Mono> 的一行
+        （<Mono>schema</Mono> / <Mono>agent_id</Mono> / <Mono>body</Mono>…）：atlas 用与读文件路径
+        <strong>同一个</strong>转换函数，不需要在这里重组。单次最多 64 条，body 上限 16 MB。
+      </InfoBanner>
+
+      <div className="stack">
+        <CodeBlock
+          label="connectors/sink.d/40-atlas_sink.toml"
+          hint="连接器：与证据同型，只换 endpoint（不做字段映射、不需要认证）"
+          code={atlasConnector(atlas.write_url)}
+        />
+        <CodeBlock
+          label="topology/sinks/business.d/atlas_uplink.toml"
+          hint="sink 分组：绑定输出两字段的 OML，batch_size = 1"
+          code={atlasSinkGroup(atlas.write_url)}
+        />
+        {atlasEnv ? (
+          <CodeBlock
+            label="环境变量（数据面进程可见）"
+            hint="只有写端点地址；auth = none 时不需要 token"
+            code={atlasEnv}
+          />
+        ) : null}
+        <CodeBlock
+          label="请求体（两字段）"
+          hint="content 是 DSNAP 记录或记录数组；多传的键会被忽略"
+          code={JSON.stringify(atlas.record, null, 2)}
+        />
+      </div>
+
+      <FailureCard dedupe="同 snap_id 的快照在库里是同一次 upsert。" />
+    </>
+  )
+}
+
+function MetricsPanel() {
+  return (
+    <>
+      <Card
+        title="上报方式"
+        subtitle="不是三字段契约：wparse 自带的 victoriametrics_sink 把统计点按 VM 的 JSON line 推进去"
+        aside={<Badge tone="blue">VM</Badge>}
+      >
+        <div className="kv">
+          <Field label="端点">
+            同栈 <Mono>http://metrics:8428</Mono>；跨机{' '}
+            <Mono>http://&lt;console-stack 内网地址&gt;:&lt;VM_HOST_PORT&gt;</Mono>
+            <span className="muted">（栈默认 18428）</span>
+          </Field>
+          <Field label="注入方式">
+            环境变量 <Mono>WIST_METRICS_ENDPOINT</Mono>
+            <span className="muted">（不要在配置文件里写死地址）</span>
+          </Field>
+          <Field label="认证">无（内网可信）；没有 token / 证书要配</Field>
+          <Field label="数据格式">VM 的 JSON line（计数点），由 sink 自己产出</Field>
+          <Field label="探活">
+            星象台「接口可用性」页的「运行指标存储」一行
+          </Field>
+        </div>
+      </Card>
+
+      <InfoBanner>
+        指标与证据 / atlas 的区别：<strong>没有信封</strong>，也不需要 OML 输出契约字段。
+        只要一条 <Mono>sink_group</Mono> 把 <Mono>monitor</Mono> 的统计点镜像到 VM；
+        端点按数据面所在网络从环境变量注入。
+      </InfoBanner>
+
+      <div className="stack">
+        <CodeBlock
+          label="topology/sinks/infra.d/metrics_uplink.toml"
+          hint="sink 分组：monitor 统计点 → VictoriaMetrics"
+          code={METRICS_SINK_GROUP}
+        />
+        <CodeBlock
+          label="环境变量（数据面进程可见）"
+          hint="同栈写 http://metrics:8428；跨机用 console-stack 的内网地址 + 宿主端口"
+          code={METRICS_ENV}
+        />
+      </div>
+
+      <Card title="失败与重试" subtitle="指标丢一两拍不影响判断，但别让它悄悄断掉">
+        <ul className="bullets">
+          <li>连接器重试 3 次，仍失败落 rescue 文件（可见、可人工重放）。</li>
+          <li>
+            端点写错时「接口可用性」页的「运行指标存储」会变成不可用 —— 先看那条探活，再查数据面。
+          </li>
+        </ul>
+      </Card>
+    </>
+  )
+}
+
+export function IngestPage({
+  section,
+  onSection,
+}: {
+  section?: string
+  onSection: (channel: IngestChannel) => void
+}) {
   const [info, setInfo] = useState<IntegrationInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const active = normalizeChannel(section)
 
   useEffect(() => {
     let cancelled = false
@@ -64,83 +380,41 @@ export function IngestPage() {
   return (
     <PageShell
       title="数据面接入"
-      summary="把证据写进证据库的接口与配置。三字段（cust_id / cmd_id / content）+ 两份 TOML，拷走即可。"
+      summary="三条通道各自独立：证据（三字段）、Atlas（资产快照，两字段）、运行指标（VM 计数）。各看各的端点与可复制配置。"
     >
-      {error ? <ErrorBanner>{error}</ErrorBanner> : null}
-
-      {info ? (
-        <>
-          <Card
-            title="写端点"
-            subtitle="数据面（warp-parse）直投的地址；明文 HTTP，只在同一内网开放"
-            aside={<span className="badge badge--blue">POST</span>}
-          >
-            <div className="kv">
-              <Field label="地址">
-                <Mono>{info.evidence.write_url}</Mono>
-              </Field>
-              <Field label="认证">
-                无（<Mono>auth = "none"</Mono>，内网可信）；将来换成 HTTPS 双向认证
-              </Field>
-              <Field label="客户">
-                <Mono>{info.evidence.customer}</Mono>
-                <span className="muted">（租户就是客户）</span>
-              </Field>
-              <Field label="允许的 kind">
-                <span className="stack-inline">
-                  {info.evidence.allowed_kinds.map((kind) => (
-                    <span key={kind} className="badge badge--gray">
-                      {kind}
-                    </span>
-                  ))}
-                </span>
-              </Field>
-              <Field label="三字段">
-                <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>
-              </Field>
-            </div>
-          </Card>
-
-          <InfoBanner>
-            连接器只负责 POST、<strong>不做字段映射</strong>：发出去的就是 OML 的输出，
-            所以 OML 必须产出 <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>。
-            连接器没有 TLS 参数，写端口只在内网开放。
-          </InfoBanner>
-
-          <div className="stack">
-            <CodeBlock
-              label="connectors/sink.d/30-evidence_sink.toml"
-              hint="连接器：怎么连（不做字段映射、不需要认证）"
-              code={info.warp_parse.connector}
-            />
-            <CodeBlock
-              label="topology/sinks/business.d/evidence_uplink.toml"
-              hint="sink 分组：绑定输出三字段的 OML，batch_size = 1"
-              code={info.warp_parse.sink_group}
-            />
-            <CodeBlock
-              label="环境变量（数据面进程可见）"
-              hint="只有写端点地址；auth = none 时不需要 token"
-              code={Object.entries(info.warp_parse.env)
-                .map(([key, value]) => `${key}=${value}`)
-                .join('\n')}
-            />
-            <CodeBlock
-              label="请求体（三字段）"
-              hint="content 给字符串或 JSON 对象都行；cust_id 同时就是分区键"
-              code={JSON.stringify(info.evidence.record, null, 2)}
-            />
+      <Block wide>
+        <div className="stack">
+          <div className="tabs" role="tablist" aria-label="数据面通道">
+            {CHANNELS.map((channel) => (
+              <button
+                key={channel.id}
+                type="button"
+                role="tab"
+                aria-selected={active === channel.id}
+                className={`tabs__item${active === channel.id ? ' tabs__item--active' : ''}`}
+                onClick={() => onSection(channel.id)}
+              >
+                <span className="tabs__label">{channel.label}</span>
+                <span className="tabs__hint">{channel.hint}</span>
+              </button>
+            ))}
           </div>
 
-          <Card title="失败与重试" subtitle="别把它当“必达”">
-            <ul className="bullets">
-              <li>非 2xx 会被连接器重试 3 次，仍失败落 rescue 文件（可见、可人工重放）。</li>
-              <li>重复投递是安全的：同 cust_id + cmd_id 同内容回 200 + 同一个 artifact_id。</li>
-              <li>400 / 401 / 403 / 413 / 422 是配置或数据问题，重试不会变好。</li>
-            </ul>
-          </Card>
-        </>
-      ) : null}
+          {error ? <ErrorBanner>{error}</ErrorBanner> : null}
+
+          {info ? (
+            <div
+              className="stack"
+              role="tabpanel"
+              aria-label={CHANNELS.find((channel) => channel.id === active)?.label}
+            >
+              {active === 'evidence' ? <EvidencePanel info={info} /> : null}
+              {active === 'atlas' ? <AtlasPanel info={info} /> : null}
+              {active === 'metrics' ? <MetricsPanel /> : null}
+            </div>
+          ) : null}
+        </div>
+      </Block>
     </PageShell>
   )
 }

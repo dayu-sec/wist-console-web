@@ -178,7 +178,15 @@ export default function App() {
         />
       ) : null}
 
-      {route.tab === 'ingest' ? <IngestPage /> : null}
+      {route.tab === 'ingest' ? (
+        <IngestPage
+          section={route.segments[0]}
+          onSection={(channel) =>
+            // 证据是默认 tab，留在 `#/ingest` 上；其余两个各自有独立地址，可分享。
+            navigate(channel === 'evidence' ? '/ingest' : `/ingest/${channel}`)
+          }
+        />
+      ) : null}
 
       {route.tab === 'devices' ? (
         <PlaceholderPage

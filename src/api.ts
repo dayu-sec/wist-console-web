@@ -167,6 +167,27 @@ export function login(token: string): Promise<LoginResult> {
   })
 }
 
+/**
+ * 确认这把令牌能进本 console；能拿到身份就返回身份，拿不到就返回 `null`。
+ *
+ * **为什么要回退**：`/api/login` 是 console 0.3 起的端点。
+ * - 部署里 web 先升、console 还是 0.2.x → 404；
+ * - `auth.mode = ingress` 时 console 根本没有令牌这回事 → 也没有这个端点。
+ * 不回退的话，一次前端更新就会把所有这类部署挡在令牌输入框外面，
+ * 而它们本来只需要“发个真请求试试”（旧行为）。
+ */
+export async function authenticate(token: string): Promise<LoginResult | null> {
+  try {
+    return await login(token)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) {
+      await getHealth()
+      return null
+    }
+    throw err
+  }
+}
+
 export interface EvidenceQuery {
   subjectId?: string
   kind?: string
@@ -217,6 +238,17 @@ export interface IntegrationInfo {
     /** 三字段示例：`cust_id` / `cmd_id` / `content`。 */
     record: Record<string, unknown>
   }
+  /**
+   * 资产拓扑写端点（两字段：`cust_id` / `content`）。
+   * BFF 没配 `atlas.sink_url` 时为 `null` —— 那是「没接入」，不是错误。
+   */
+  atlas?: {
+    write_url: string
+    auth: string
+    /** atlas 的租户 UUID（不是客户号）：一个 wparse 可以写多个租户。 */
+    customer: string
+    record: Record<string, unknown>
+  } | null
   warp_parse: {
     connector: string
     sink_group: string
