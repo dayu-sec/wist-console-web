@@ -1,7 +1,10 @@
 // BFF（`wist-console`）的客户端。
 //
 // 浏览器**只跟 BFF 说话**：证据的 mTLS、租户/敏感度闸、预签名代签都在 BFF 里完成；
-// 这个文件不持有任何凭据，也不直连 COS / atlas / center。
+// 这个文件不持有任何**服务**凭据（证据服务的证书、COS 的密钥都不在这里）。
+// 唯一的凭据是操作员自己的访问令牌（`wcr_…`），由 `auth.ts` 管，进 `Authorization` 头。
+
+import { getToken, notifyUnauthorized } from './auth'
 
 /** 每个数据源的可用状态。`not_configured` 不是错误 —— 是「这个域还没接」。 */
 export type SourceStateName = 'ok' | 'unavailable' | 'not_configured'
@@ -92,11 +95,16 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken()
   let response: Response
   try {
     response = await fetch(path, {
       ...init,
-      headers: { Accept: 'application/json', ...(init?.headers ?? {}) },
+      headers: {
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
       credentials: 'same-origin',
     })
   } catch (error) {
@@ -116,9 +124,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const envelope = payload as { error?: { code?: string; message?: string } } | null
+    const code = envelope?.error?.code ?? String(response.status)
+    if (response.status === 401) {
+      // token 没了 / 过期 / 被撤销：清掉本地副本并让 App 弹出输入框。
+      notifyUnauthorized()
+    }
     throw new ApiError(
       response.status,
-      envelope?.error?.code ?? String(response.status),
+      code,
       envelope?.error?.message ?? response.statusText,
     )
   }

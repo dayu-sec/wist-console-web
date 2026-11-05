@@ -1799,3 +1799,44 @@ a:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+/* ── 访问令牌入口：没有 token 就不进界面 ─────────────────────────────────── */
+.gate {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.gate__card {
+  max-width: 440px;
+}
+
+.gate__label {
+  color: var(--text-3);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.gate__input {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.gate__input:focus {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+.gate__error {
+  color: var(--crit);
+  font-size: 12.5px;
+  line-height: 1.5;
+}

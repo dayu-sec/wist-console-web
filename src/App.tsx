@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError, getHealth, type ConsoleHealth } from './api'
+import { UNAUTHORIZED_EVENT, getToken } from './auth'
 import { Shell, type Tab } from './components/Shell'
+import { TokenGate } from './components/TokenGate'
 import { EvidenceDetailPage } from './pages/EvidenceDetailPage'
 import { EvidencePage } from './pages/EvidencePage'
 import { HealthPage } from './pages/HealthPage'
@@ -42,6 +44,14 @@ export default function App() {
   const [healthError, setHealthError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null)
+  // 没有令牌就不进界面：任何 401 都会把这里重置成 true（见 `auth.ts` 的广播）。
+  const [needToken, setNeedToken] = useState(() => !getToken())
+
+  useEffect(() => {
+    const onUnauthorized = () => setNeedToken(true)
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+  }, [])
 
   useEffect(() => {
     const onHash = () => setRoute(parseHash(window.location.hash))
@@ -72,6 +82,17 @@ export default function App() {
   }, [refresh])
 
   const connected = health !== null
+
+  if (needToken) {
+    return (
+      <TokenGate
+        onAuthenticated={() => {
+          setNeedToken(false)
+          void refresh()
+        }}
+      />
+    )
+  }
 
   return (
     <Shell
