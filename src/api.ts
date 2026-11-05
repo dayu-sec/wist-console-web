@@ -172,11 +172,13 @@ export function contentUrl(artifactId: string): string {
 export interface IntegrationInfo {
   evidence: {
     write_url: string
+    /** `none`：现在不校验（内网可信）；将来换成 HTTPS 双向认证。 */
     auth: string
-    username_is_token: boolean
-    tenant: string
+    /** 客户 id —— 租户与客户已经合并成一个维度。 */
+    customer: string
     allowed_kinds: string[]
-    frame_marker: string
+    /** 三字段示例：`cust_id` / `cmd_id` / `content`。 */
+    record: Record<string, unknown>
   }
   warp_parse: {
     connector: string

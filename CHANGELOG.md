@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.1.9 · 2026-11-05
+
+- 修一个“页面能开、所有 `/api` 挂掉”的故障：`proxy_pass` 写固定主机名时 nginx 只在启动时
+  解析一次，上游容器一重建（IP 变）就拿着旧 IP 回 404/502。改成 `resolver` + 变量形式后
+  按 10s TTL 重新解析，`/api` 与 `/atlas/` 都在上游重建后自动跟上。
+- 接入信息页对齐三字段契约：认证改为「无」、字段改成 `cust_id` / `cmd_id` / `content`，
+  连接器不再展示 `username` / `password`，`sink group` 文件名叫 `evidence_uplink.toml`。
+
 ## 0.1.8 · 2026-11-04
 
 - 证据详情「打开正文」现在两种部署都能用：默认走 60s 单对象签名；

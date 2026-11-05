@@ -64,7 +64,7 @@ export function IngestPage() {
   return (
     <PageShell
       title="数据面接入"
-      summary="把报告写进证据库的接口与配置。拷走两份 TOML、配两个环境变量即可；这里不显示站点 token。"
+      summary="把证据写进证据库的接口与配置。三字段（cust_id / cmd_id / content）+ 两份 TOML，拷走即可。"
     >
       {error ? <ErrorBanner>{error}</ErrorBanner> : null}
 
@@ -80,11 +80,11 @@ export function IngestPage() {
                 <Mono>{info.evidence.write_url}</Mono>
               </Field>
               <Field label="认证">
-                Basic：<Mono>username</Mono> = 站点 token（<Mono>password</Mono> 留空）；也支持{' '}
-                <Mono>Bearer &lt;token&gt;</Mono>
+                无（<Mono>auth = "none"</Mono>，内网可信）；将来换成 HTTPS 双向认证
               </Field>
-              <Field label="租户">
-                <Mono>{info.evidence.tenant}</Mono>
+              <Field label="客户">
+                <Mono>{info.evidence.customer}</Mono>
+                <span className="muted">（租户就是客户）</span>
               </Field>
               <Field label="允许的 kind">
                 <span className="stack-inline">
@@ -95,42 +95,47 @@ export function IngestPage() {
                   ))}
                 </span>
               </Field>
-              <Field label="帧标记">
-                <Mono>{info.evidence.frame_marker}</Mono>
-                <span className="muted">（其它标记一律 400）</span>
+              <Field label="三字段">
+                <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>
               </Field>
             </div>
           </Card>
 
           <InfoBanner>
-            前提：平台侧 ingest 必须加载 <Mono>agent_uplink_ivsrep</Mono> 的 WPL/OML；
-            连接器没有 TLS 参数，所以写端口只在内网开放。
+            连接器只负责 POST、<strong>不做字段映射</strong>：发出去的就是 OML 的输出，
+            所以 OML 必须产出 <Mono>cust_id</Mono> / <Mono>cmd_id</Mono> / <Mono>content</Mono>。
+            连接器没有 TLS 参数，写端口只在内网开放。
           </InfoBanner>
 
           <div className="stack">
             <CodeBlock
               label="connectors/sink.d/30-evidence_sink.toml"
-              hint="连接器：怎么连、怎么认证（Basic，username = 站点 token）"
+              hint="连接器：怎么连（不做字段映射、不需要认证）"
               code={info.warp_parse.connector}
             />
             <CodeBlock
-              label="topology/sinks/business.d/agent_ivsrep_evidence.toml"
-              hint="sink 分组：绑定 agent_uplink_ivsrep，batch_size = 1"
+              label="topology/sinks/business.d/evidence_uplink.toml"
+              hint="sink 分组：绑定输出三字段的 OML，batch_size = 1"
               code={info.warp_parse.sink_group}
             />
             <CodeBlock
               label="环境变量（数据面进程可见）"
-              hint="EVIDENCE_SINK_TOKEN 必须与证据服务 sec-value.yml 里的值一致"
+              hint="只有写端点地址；auth = none 时不需要 token"
               code={Object.entries(info.warp_parse.env)
                 .map(([key, value]) => `${key}=${value}`)
                 .join('\n')}
+            />
+            <CodeBlock
+              label="请求体（三字段）"
+              hint="content 给字符串或 JSON 对象都行；cust_id 同时就是分区键"
+              code={JSON.stringify(info.evidence.record, null, 2)}
             />
           </div>
 
           <Card title="失败与重试" subtitle="别把它当“必达”">
             <ul className="bullets">
               <li>非 2xx 会被连接器重试 3 次，仍失败落 rescue 文件（可见、可人工重放）。</li>
-              <li>重复投递是安全的：同 command_id 同内容回 200 + 同一个 artifact_id。</li>
+              <li>重复投递是安全的：同 cust_id + cmd_id 同内容回 200 + 同一个 artifact_id。</li>
               <li>400 / 401 / 403 / 413 / 422 是配置或数据问题，重试不会变好。</li>
             </ul>
           </Card>
