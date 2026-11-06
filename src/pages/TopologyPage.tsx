@@ -20,7 +20,7 @@ export function TopologyPage() {
         配置问题，不是页面坏了。
       </InfoBanner>
       <iframe
-        className="console-frame"
+        className="field-frame"
         src="/atlas/"
         title="wist-atlas 资产拓扑"
         referrerPolicy="no-referrer"

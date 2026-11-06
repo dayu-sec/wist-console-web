@@ -28,7 +28,7 @@ export function TokenGate({ onAuthenticated }: Props) {
     try {
       // 先在**不存**令牌的情况下问一次“这串是谁”——`POST /api/login`。
       // 存了才验的话，登录失败的瞬间其它页面已经开始拿它发请求了。
-      // 拿不到身份不一定是错：老 console / ingress 模式没这个端点，
+      // 拿不到身份不一定是错：老版本 BFF / ingress 模式没这个端点，
       // `authenticate` 会回退到“发个真请求试试”（见 api.ts）。
       await authenticate(token)
       setToken(token)

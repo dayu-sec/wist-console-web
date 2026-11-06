@@ -130,7 +130,7 @@ export function EvidencePage({
           {error}
           <span className="muted">
             {' '}
-            —— 确认 <code className="mono">wist-console</code>（BFF）已启动，且能连到证据服务。
+            —— 确认 <code className="mono">wist-field-api</code>（BFF）已启动，且能连到证据服务。
           </span>
         </ErrorBanner>
       ) : null}

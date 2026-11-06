@@ -163,7 +163,7 @@ export function HealthPage({
           {interfaces.length === 0 ? (
             <Empty
               title="还没有检查结果"
-              hint="点右上角「立即检查」；如果一直为空，先确认页面本身能连上 console BFF。"
+              hint="点右上角「立即检查」；如果一直为空，先确认页面本身能连上计算区 BFF。"
             />
           ) : (
             <div className="table-wrap">

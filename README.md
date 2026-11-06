@@ -1,14 +1,14 @@
-# wist-console-web（数据场 · 现场视图）
+# wist-field-web（数据场 · 现场视图）
 
 计算区**只读**界面：**证据 / 资产拓扑 / 运行指标 / 接口可用性 / 安全设备** 一个入口。
 
 > 展示名「**数据场 · 现场视图**」：现场由三类信号构成 —— 发生过什么（证据）、由什么构成（资产）、
 > 现在跑得怎样（指标）。场是由采样重建的，所以“静默”与“少了几条序列”是同一件事：场缺一块。
 > 只读，不动手（不重启、不发布、不处置）。
-> 技术名保持 `wist-console-web`（仓名 / 镜像名 / 服务名不跟着改）。
+> 技术名 `wist-field-web`（仓名 / 镜像名 / 服务名同步改）。
 
-- 后端：`wist-console`（BFF），浏览器只跟它说话
-- 部署：`wist-console-stack`（计算区，经 VPN / 堡垒机进入）
+- 后端：`wist-field-api`（BFF），浏览器只跟它说话
+- 部署：`wist-field-stack`（计算区，经 VPN / 堡垒机进入）
 - 设计：`wist-design/doc/design/console/console-architecture.md`
 
 ## 为什么不在接入区
@@ -87,7 +87,7 @@ npm run dev
 
 ```bash
 npm run build      # tsc --noEmit + vite build
-docker build -t wist-console-web:dev .
+docker build -t wist-field-web:dev .
 ```
 
 镜像契约与同级前端一致：`ARG APP_VERSION` → `VITE_APP_VERSION`（页面左下角版本号）。

@@ -135,7 +135,7 @@ tags = ["sink:vmetrics"]
 [sink_group.sinks.params]
 endpoint = "\${WIST_METRICS_ENDPOINT}"`
 
-const METRICS_ENV = `WIST_METRICS_ENDPOINT=http://<console-stack 内网地址>:<VM_HOST_PORT>`
+const METRICS_ENV = `WIST_METRICS_ENDPOINT=http://<field-stack 内网地址>:<VM_HOST_PORT>`
 
 function FailureCard({ dedupe }: { dedupe: string }) {
   return (
@@ -231,7 +231,7 @@ function AtlasPanel({ info }: { info: IntegrationInfo }) {
     return (
       <InfoBanner tone="warn">
         BFF 没配 <Mono>atlas.sink_url</Mono>，所以这里拿不到资产拓扑的写地址。
-        在 console 的 <Mono>console.toml</Mono> 里补上 <Mono>[atlas]</Mono> 段的{' '}
+        在计算区的 <Mono>field-api.toml</Mono> 里补上 <Mono>[atlas]</Mono> 段的{' '}
         <Mono>sink_url</Mono>（数据面视角的 <Mono>/internal/atlas</Mono>）后重启 BFF 即可。
       </InfoBanner>
     )
@@ -314,7 +314,7 @@ function MetricsPanel() {
         <div className="kv">
           <Field label="端点">
             同栈 <Mono>http://metrics:8428</Mono>；跨机{' '}
-            <Mono>{'http://<console-stack 内网地址>:<VM_HOST_PORT>'}</Mono>
+            <Mono>{'http://<field-stack 内网地址>:<VM_HOST_PORT>'}</Mono>
             <span className="muted">（栈默认 18428）</span>
           </Field>
           <Field label="注入方式">
@@ -343,7 +343,7 @@ function MetricsPanel() {
         />
         <CodeBlock
           label="环境变量（数据面进程可见）"
-          hint="同栈写 http://metrics:8428；跨机用 console-stack 的内网地址 + 宿主端口"
+          hint="同栈写 http://metrics:8428；跨机用 field-stack 的内网地址 + 宿主端口"
           code={METRICS_ENV}
         />
       </div>

@@ -264,7 +264,7 @@ export function MetricsPage() {
               {error}
               <span className="muted">
                 {' '}
-                —— 确认 console 栈的 <code className="mono">metrics</code> 起着，且数据面把
+                —— 确认计算区的 <code className="mono">metrics</code> 起着，且数据面把
                 <code className="mono">CONSOLE_VM_ENDPOINT</code> 指到了它。
               </span>
             </ErrorBanner>

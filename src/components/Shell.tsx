@@ -208,7 +208,7 @@ export function Shell({
 
         <footer className="sidebar-footer">
           <span className="sidebar-version">v{__APP_VERSION__}</span>
-          <span className="sidebar-note">wist-console · 计算区</span>
+          <span className="sidebar-note">wist-field-api · 计算区</span>
         </footer>
       </aside>
 
@@ -227,12 +227,12 @@ export function Shell({
               className={`pill ${connected ? 'pill--live' : 'pill--idle'}`}
               title={
                 connected
-                  ? `数据来自 console BFF：每 30 秒自动拉取；最近同步 ${
+                  ? `数据来自计算区 BFF：每 30 秒自动拉取；最近同步 ${
                       lastSyncedAt
                         ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour12: false })
                         : '—'
                     }`
-                  : 'console BFF 不可达：页面上的数据可能为空或过期'
+                  : '计算区 BFF 不可达：页面上的数据可能为空或过期'
               }
             >
               <span className={syncing ? 'dot dot--syncing' : 'dot'} aria-hidden="true" />

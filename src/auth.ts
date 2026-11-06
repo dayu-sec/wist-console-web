@@ -6,7 +6,7 @@
 // 为什么不是 localStorage：关掉页面后不该还在，token 的生命周期由 cred 侧的
 // `ttl_seconds` 决定，浏览器不该再延长它。
 
-const STORAGE_KEY = 'wist.console.token'
+const STORAGE_KEY = 'wist.field.token'
 
 /** 任何请求返回 401 时广播一次：App 据此弹出令牌输入框。 */
 export const UNAUTHORIZED_EVENT = 'wist:unauthorized'

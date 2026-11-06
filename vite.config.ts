@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// 开发态把 /api 代理到本机的 `wist-console`（BFF），/atlas 代理到本机的 atlas-web。
+// 开发态把 /api 代理到本机的 `wist-field-api`（BFF），/atlas 代理到本机的 atlas-web。
 // 容器里由 nginx 完成同样的反代（见 nginx.conf）。
 const apiTarget = process.env.VITE_CONSOLE_API_TARGET ?? 'http://127.0.0.1:19200'
 const atlasTarget = process.env.VITE_ATLAS_DEV_URL ?? 'http://127.0.0.1:18080'

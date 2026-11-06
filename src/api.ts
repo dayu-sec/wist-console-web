@@ -1,4 +1,4 @@
-// BFF（`wist-console`）的客户端。
+// BFF（`wist-field-api`）的客户端。
 //
 // 浏览器**只跟 BFF 说话**：证据的 mTLS、租户/敏感度闸、预签名代签都在 BFF 里完成；
 // 这个文件不持有任何**服务**凭据（证据服务的证书、COS 的密钥都不在这里）。
@@ -109,7 +109,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new ApiError(0, 'network_error', `无法连接 console BFF：${message}`)
+    throw new ApiError(0, 'network_error', `无法连接计算区 BFF：${message}`)
   }
 
   const text = await response.text()
@@ -168,11 +168,11 @@ export function login(token: string): Promise<LoginResult> {
 }
 
 /**
- * 确认这把令牌能进本 console；能拿到身份就返回身份，拿不到就返回 `null`。
+ * 确认这把令牌能进本服务；能拿到身份就返回身份，拿不到就返回 `null`。
  *
- * **为什么要回退**：`/api/login` 是 console 0.3 起的端点。
- * - 部署里 web 先升、console 还是 0.2.x → 404；
- * - `auth.mode = ingress` 时 console 根本没有令牌这回事 → 也没有这个端点。
+ * **为什么要回退**：`/api/login` 是 BFF 0.3 起的端点。
+ * - 部署里 web 先升、BFF 还是 0.2.x → 404；
+ * - `auth.mode = ingress` 时 BFF 根本没有令牌这回事 → 也没有这个端点。
  * 不回退的话，一次前端更新就会把所有这类部署挡在令牌输入框外面，
  * 而它们本来只需要“发个真请求试试”（旧行为）。
  */
