@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.2.1 · 2026-11-06
+
+- **发布流水线：原生分架构构建镜像，去掉 QEMU**（与 `wist-center` 同一套）：
+  amd64 在 `ubuntu-24.04`、arm64 在 `ubuntu-24.04-arm` 各自原生构建；两个架构按 digest
+  分别推 ghcr / TCR，独立 job 合并多架构 manifest。之前 arm64 段在模拟层里跑 `npm ci`，
+  单步 23 分钟。
+- **镜像内容与行为零变化**。
+
 ## 0.2.0 · 2026-11-06
 
 - **改名：`wist-console-web` → `wist-field-web`**（镜像同名）。展示名「数据场 · 现场视图」不变。
