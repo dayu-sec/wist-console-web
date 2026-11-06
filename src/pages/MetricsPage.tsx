@@ -229,7 +229,7 @@ export function MetricsPage() {
   return (
     <PageShell
       title="运行指标"
-      summary="数据面把 agent 采集指标镜像进计算区 VictoriaMetrics（CONSOLE_VM_ENDPOINT），本页只读这一份。引擎/管道统计只写网关栈，不在这一页。"
+      summary="数据场里「强度」那一维：数据面把 agent 采集指标镜像进计算区 VictoriaMetrics（CONSOLE_VM_ENDPOINT），本页只读这一份。引擎/管道统计只写网关栈，不在这一页。"
       actions={
         <>
           <select
@@ -298,7 +298,7 @@ export function MetricsPage() {
                 {overview ? overview.window_seconds / 60 : '—'}
                 <span className="metric__unit">分钟</span>
               </span>
-              <span className="metric__hint">窗口内没有样本 = 静默，不是「值为 0」</span>
+              <span className="metric__hint">窗口内没有样本 = 场缺一块，不是「值为 0」</span>
             </div>
           </div>
 
@@ -306,7 +306,7 @@ export function MetricsPage() {
             <Card title="Agent 自观测">
               <Empty
                 title="还没有 agent 指标"
-                hint="数据面的 wparse 要把 `agent-metrics` 分组镜像到 `CONSOLE_VM_ENDPOINT`；只写网关栈那份时，这里会一直是空的。"
+                hint="场是由采样重建的：数据面的 wparse 要把 `agent-metrics` 分组镜像到 `CONSOLE_VM_ENDPOINT`；只写网关栈那份时，这里会一直是空的。"
               />
             </Card>
           ) : null}

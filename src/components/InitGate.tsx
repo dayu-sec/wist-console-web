@@ -16,7 +16,7 @@ export function InitGate({ onRetry, retrying, detail }: Props) {
     <div className="gate">
       <div className="gate__card card">
         <div>
-          <h1 className="card__title">星象台还没接入凭据中心</h1>
+          <h1 className="card__title">数据场还没接入凭据中心</h1>
           <p className="card__subtitle">
             这台 console 还没有自己的 cred 材料，所以业务接口现在全部返回{' '}
             <code>503 peer_not_initialized</code>。先完成自注册，界面随后自动可用

@@ -1,4 +1,4 @@
-// 访问令牌入口：星象台没有「匿名打开」这一档。
+// 访问令牌入口：数据场没有「匠名打开」这一档。
 //
 // 操作员的 token 由 `wist-cred` 签发（`wcr_…`），BFF 用摘要表验；
 // 浏览器只负责把它带在 `Authorization: Bearer` 上。
@@ -39,7 +39,7 @@ export function TokenGate({ onAuthenticated }: Props) {
         // 403 = 令牌有效但角色不够；401 = 不认识 / 过期 / 撤销。
         setError(
           err.status === 403
-            ? `这把令牌有效，但没有星象台的访问角色（${err.code}）`
+            ? `这把令牌有效，但没有数据场的访问角色（${err.code}）`
             : `令牌不可用（${err.code}）：${err.message}`,
         )
       } else {
@@ -54,7 +54,7 @@ export function TokenGate({ onAuthenticated }: Props) {
     <div className="gate">
       <form className="gate__card card" onSubmit={submit}>
         <div>
-          <h1 className="card__title">星象台</h1>
+          <h1 className="card__title">数据场</h1>
           <p className="card__subtitle">
             这个界面只对持有 <code>wist-cred</code> 访问令牌的人开放。令牌由管理员在凭据中心签发
             （<code>wcr_…</code>），只存在本标签页里，关掉即失效。

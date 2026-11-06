@@ -179,8 +179,8 @@ export function Shell({
         <div className="brand">
           <BrandMark />
           <span className="brand-copy">
-            <span className="brand-text">星象台</span>
-            <span className="brand-sub">证据与观测</span>
+            <span className="brand-text">数据场</span>
+            <span className="brand-sub">现场视图</span>
           </span>
         </div>
 

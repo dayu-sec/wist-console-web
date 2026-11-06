@@ -324,7 +324,7 @@ function MetricsPanel() {
           <Field label="认证">无（内网可信）；没有 token / 证书要配</Field>
           <Field label="数据格式">VM 的 JSON line（计数点），由 sink 自己产出</Field>
           <Field label="探活">
-            星象台「接口可用性」页的「运行指标存储」一行
+            数据场「接口可用性」页的「运行指标存储」一行
           </Field>
         </div>
       </Card>
