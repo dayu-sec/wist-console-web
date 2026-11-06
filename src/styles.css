@@ -2006,3 +2006,183 @@ a:focus-visible {
   font-size: 12.5px;
   line-height: 1.5;
 }
+
+/* ============================================================================
+ * 运行指标（采集健康 / 趋势 / 指标目录）
+ *
+ * 曲线是手写 SVG：这一页只要「有没有断、大概什么形状」，不值得引一个图表库。
+ * 单位已经在 BFF 换算好，这里不做任何算术，只负责画与写标签。
+ * ========================================================================== */
+
+/* 页头的窗口选择器：全局 `select { width: 100% }` 在 flex 行里会把按钮挤走。 */
+.page-actions select {
+  width: auto;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+}
+
+.table--clickable tbody tr {
+  cursor: pointer;
+}
+
+.table__row--selected td {
+  background: var(--accent-soft);
+}
+
+.table tbody tr.table__row--selected:hover td {
+  background: var(--accent-soft);
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+
+.chart__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chart__title {
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chart__value {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: 64px;
+}
+
+.chart__area {
+  fill: var(--accent-soft);
+  stroke: none;
+}
+
+.chart__line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* 拉伸到容器宽度时线宽不跟着变粗 / 变细。 */
+  vector-effect: non-scaling-stroke;
+}
+
+.chart__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* 选择类 label（env / cluster / …）：只读身份，不是筛选条件。 */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.chip strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+/* 指标目录：按名字前缀折叠，`system_*` 默认收起，`agent_*` 默认展开。 */
+.catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-group {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+
+.catalog-group > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.catalog-group__name {
+  font-family: var(--font-mono);
+}
+
+.catalog-group__meta {
+  color: var(--text-4);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.catalog-list {
+  margin: 0;
+  padding: 0 12px 10px;
+  list-style: none;
+}
+
+.catalog-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  border-top: 1px dashed var(--border);
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+.catalog-list li:first-child {
+  border-top: none;
+}
+
+.catalog-list__series {
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}

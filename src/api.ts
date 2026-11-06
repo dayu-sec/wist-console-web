@@ -264,3 +264,78 @@ export interface IntegrationInfo {
 export function getIntegration(): Promise<IntegrationInfo> {
   return request<IntegrationInfo>('/api/integration')
 }
+
+/**
+ * 运行指标：**读的是计算区自己那份 VictoriaMetrics**。
+ *
+ * 数据面（wparse）把 agent 采集指标镜像进来（网关栈的 `CONSOLE_VM_ENDPOINT`）；
+ * 网关栈那份 VM 只服务控制面观测页，两份存储互不聚合 —— 所以这里没有引擎/管道统计
+ * （`wparse_*` 只写网关栈）。单位由 BFF 换算好（百分比 / 毫秒 / 字节），页面不做算术。
+ */
+export interface MetricsAgent {
+  agent_id: string
+  /** 选择类 label（`env` / `cluster` / …），由网关下发、贴在每条序列上。 */
+  labels: Record<string, string>
+  /** 这台 agent 在存储里的序列总数（含 `system_*` / `process_*`）。 */
+  series: number
+  /** 观察窗口内 `agent_cpu_ratio` 的样本数：`0` = 采集静默。 */
+  samples: number
+  cpu_percent: number | null
+  cpu_cores: number | null
+  memory_bytes: number | null
+  admin_latency_ms: number | null
+  /** 采集记账：按 `target_kind` × `outcome` 报的目标数（这里按 outcome 汇总）。 */
+  collect_targets: number | null
+  collect_dropped: number | null
+  uplink_failed_total: number | null
+  discovery_policy_version: number | null
+}
+
+export interface MetricsCatalogEntry {
+  name: string
+  /** 名字前缀（`agent` / `system` / `process` / …）。 */
+  group: string
+  series: number
+}
+
+export interface MetricsOverview {
+  generated_at_ms: number
+  /** 样本数 / 静默判定的观察窗口（秒）。 */
+  window_seconds: number
+  source: { base_url: string }
+  totals: { names: number; series: number; agents: number }
+  agents: MetricsAgent[]
+  catalog: MetricsCatalogEntry[]
+}
+
+export interface MetricsHistorySeries {
+  /** 规范指标名（`agent_cpu_ratio` …），只用于排查。 */
+  metric: string
+  /** 页面标题：BFF 按 `wist-metrics` 常量表给出，前端不认名字。 */
+  title: string
+  unit: 'percent' | 'bytes' | 'count' | 'milliseconds'
+  /** `[unix 毫秒, 值]`，按时间升序。 */
+  points: [number, number][]
+}
+
+export interface MetricsAgentHistory {
+  agent_id: string
+  window_seconds: number
+  step_seconds: number
+  labels: Record<string, string>
+  series: MetricsHistorySeries[]
+}
+
+export function getMetrics(): Promise<MetricsOverview> {
+  return request<MetricsOverview>('/api/metrics')
+}
+
+export function getMetricsHistory(
+  agentId: string,
+  windowSeconds: number,
+): Promise<MetricsAgentHistory> {
+  const params = new URLSearchParams({ window_seconds: String(windowSeconds) })
+  return request<MetricsAgentHistory>(
+    `/api/metrics/agents/${encodeURIComponent(agentId)}/history?${params.toString()}`,
+  )
+}

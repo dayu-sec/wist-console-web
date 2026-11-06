@@ -10,6 +10,7 @@ import { HealthPage } from './pages/HealthPage'
 import { OverviewPage } from './pages/Overview'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { IngestPage } from './pages/IngestPage'
+import { MetricsPage } from './pages/MetricsPage'
 import { TopologyPage } from './pages/TopologyPage'
 
 const TABS: Tab[] = ['overview', 'evidence', 'topology', 'metrics', 'health', 'devices', 'ingest']
@@ -173,22 +174,7 @@ export default function App() {
         />
       ) : null}
 
-      {route.tab === 'metrics' ? (
-        <PlaceholderPage
-          title="运行指标"
-          summary="运行指标：数据面的来源 / PARSE / 输出三层吞吐与静默，以及主机侧的采集健康。"
-          missing={[
-            '每个网关栈里各有一份 VictoriaMetrics（wparse 写入、gateway-web 的「数据采集」页读），平台侧没有聚合。',
-            '计算区到不了客户侧的 VM，必须由网关按周期上报运行摘要，或由平台侧 ingest 数据面自己统计。',
-            '口径未定：来源 / PARSE / 输出三层怎么合并、时间窗多长、静默与「真的没流量」怎么区分。',
-          ]}
-          plan={[
-            '先在网关侧生成 5 分钟粒度的计数摘要（pick_stat + sink 计数），体积控制在几 KB。',
-            '随既有状态上报通道带回 center（不新开入站面），落一张按网关的时间序表。',
-            'BFF 提供 /api/metrics 聚合查询，本页只负责画图，不做跨网关的二次计算。',
-          ]}
-        />
-      ) : null}
+      {route.tab === 'metrics' ? <MetricsPage /> : null}
 
       {route.tab === 'ingest' ? (
         <IngestPage
