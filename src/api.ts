@@ -188,6 +188,22 @@ export async function authenticate(token: string): Promise<LoginResult | null> {
   }
 }
 
+export interface EvidenceCapabilities {
+  /** 证据服务的对象后端：`file` / `s3`；老服务不报 `objects` 时为 null。 */
+  objects_kind: string | null
+  /** 后端是否签发单对象 URL；`file` 为 false（正文只能走 BFF 代理读）。 */
+  presign_supported: boolean
+}
+
+/**
+ * 证据页的正文通路：让后端自己说清楚怎么读，页面不再先发一个必然 501 的签名请求。
+ * 探测失败 / 老证据服务不报 `objects` 时 `objects_kind` 为 null，
+ * 页面退回到「先试签名、失败再回落」的老行为。
+ */
+export function getEvidenceCapabilities(): Promise<EvidenceCapabilities> {
+  return request<EvidenceCapabilities>('/api/evidence/capabilities')
+}
+
 export interface EvidenceQuery {
   subjectId?: string
   kind?: string

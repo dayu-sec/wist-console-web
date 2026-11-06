@@ -1,3 +1,5 @@
+import type { EvidenceCapabilities } from './api'
+
 /** 字节数 → 可读大小。 */
 export function formatBytes(size: number | null | undefined): string {
   if (size === null || size === undefined) return '—'
@@ -52,4 +54,22 @@ export function formatCountdown(expiresAt: string | null | undefined, now = Date
   if (minutes < 60) return `${minutes} 分 ${seconds} 秒`
   const hours = Math.floor(minutes / 60)
   return `${hours} 小时 ${minutes % 60} 分`
+}
+
+/**
+ * 正文通路的说明文案（列表页 / 详情页共用）。
+ *
+ * 后端由证据服务的 `/healthz` 自述，经 BFF 的 `/api/evidence/capabilities` 取回：
+ * `file` 没有签名 URL，只能走 BFF 代理读；`s3` 才是一次 60s 单对象签名。
+ * 探测不到（`null`）时不猜，写成「按后端自动选」。
+ */
+export function evidenceBodyHint(capabilities: EvidenceCapabilities | null): string {
+  switch (capabilities?.objects_kind) {
+    case 'file':
+      return '正文由 BFF 代理读（本地文件存储不签发 URL），BFF 不落盘。'
+    case 's3':
+      return '正文只经 60s 单对象签名打开，BFF 不转存。'
+    default:
+      return '正文经 60s 单对象签名或 BFF 代理读（按存储后端自动选），BFF 不落盘。'
+  }
 }

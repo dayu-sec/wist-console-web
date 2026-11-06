@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react'
-import { ApiError, contentUrl, getEvidence, presignEvidence, type EvidenceArtifact, type PresignResult } from '../api'
-import { formatBytes, formatCountdown, formatDateTime } from '../format'
+import {
+  ApiError,
+  contentUrl,
+  getEvidence,
+  getEvidenceCapabilities,
+  presignEvidence,
+  type EvidenceArtifact,
+  type EvidenceCapabilities,
+  type PresignResult,
+} from '../api'
+import { evidenceBodyHint, formatBytes, formatCountdown, formatDateTime } from '../format'
 import { Badge, ErrorBanner, Field, InfoBanner, Mono, PageShell } from '../components/ui'
 import { verdictTone } from './EvidencePage'
 
 export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string; onBack: () => void }) {
   const [artifact, setArtifact] = useState<EvidenceArtifact | null>(null)
+  const [capabilities, setCapabilities] = useState<EvidenceCapabilities | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [signed, setSigned] = useState<PresignResult | null>(null)
   const [proxied, setProxied] = useState(false)
@@ -39,9 +49,30 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
     return () => window.clearInterval(timer)
   }, [signed])
 
+  // 正文通路：证据服务自述的对象后端。取不到就按老行为（先试签名、失败再回落）。
+  useEffect(() => {
+    let cancelled = false
+    getEvidenceCapabilities()
+      .then((value) => {
+        if (!cancelled) setCapabilities(value)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const openBody = async () => {
-    setBusy(true)
     setSignError(null)
+    // `objects.kind = file`：根本没有签名 URL，直接走代理读 ——
+    // 不用先发一个必然 501 的签名请求。
+    if (capabilities && !capabilities.presign_supported) {
+      setSigned(null)
+      setProxied(true)
+      window.open(contentUrl(artifactId), '_blank', 'noopener,noreferrer')
+      return
+    }
+    setBusy(true)
     try {
       const result = await presignEvidence(artifactId)
       setSigned(result)
@@ -65,7 +96,7 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
   return (
     <PageShell
       title="证据详情"
-      summary="元数据来自索引；正文默认走 60s 单对象签名，本地文件存储下由 BFF 代理读——都不在 BFF 落盘。"
+      summary={`元数据来自索引；${evidenceBodyHint(capabilities)}`}
       actions={
         <div className="page-actions">
           <button type="button" className="button button--ghost" onClick={onBack}>
@@ -91,7 +122,7 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
         </InfoBanner>
       ) : null}
 
-      {proxied ? (
+      {proxied && capabilities?.presign_supported !== false ? (
         <InfoBanner>
           当前部署不签发预签名 URL（证据服务 <code className="mono">objects.kind = file</code>）：
           正文改由 BFF 代理读取，浏览器仍不持任何凭据。
@@ -170,9 +201,27 @@ export function EvidenceDetailPage({ artifactId, onBack }: { artifactId: string;
 
           <section className="block block--narrow">
             <InfoBanner tone="info">
-              正文是 zstd 压缩的 JSON，读的时候已解压：开了 <code className="mono">s3</code>
-              存储就是一次 60s 单对象签名，本地文件存储（<code className="mono">file</code>）则由
-              BFF 代理读（<code className="mono">/api/evidence/{'{id}'}/content</code>）。
+              {capabilities?.objects_kind === 'file' ? (
+                <>
+                  正文是 zstd 压缩的 JSON，读的时候已解压。当前部署是本地文件存储（
+                  <code className="mono">objects.kind = file</code>），没有签名 URL：点「打开正文」
+                  由 BFF 代理读（<code className="mono">/api/evidence/{'{id}'}/content</code>），
+                  浏览器不持任何凭据。
+                </>
+              ) : capabilities?.objects_kind === 's3' ? (
+                <>
+                  正文是 zstd 压缩的 JSON，读的时候已解压。当前部署是对象存储（
+                  <code className="mono">objects.kind = s3</code>）：点「打开正文」签发一个 60s、
+                  单对象的 URL，浏览器直连对象存储，BFF 不转存。
+                </>
+              ) : (
+                <>
+                  正文是 zstd 压缩的 JSON，读的时候已解压。通路按证据服务的存储后端自动选：
+                  <code className="mono">s3</code> 是一次 60s 单对象签名，本地文件存储（
+                  <code className="mono">file</code>）则由 BFF 代理读（
+                  <code className="mono">/api/evidence/{'{id}'}/content</code>）。
+                </>
+              )}
             </InfoBanner>
           </section>
         </>

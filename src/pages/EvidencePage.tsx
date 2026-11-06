@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ApiError, listEvidence, type EvidenceArtifact } from '../api'
-import { formatBytes, formatDateTime } from '../format'
+import { ApiError, getEvidenceCapabilities, listEvidence, type EvidenceArtifact, type EvidenceCapabilities } from '../api'
+import { evidenceBodyHint, formatBytes, formatDateTime } from '../format'
 import { Badge, Block, Empty, ErrorBanner, PageShell, type BadgeTone } from '../components/ui'
 
 const KINDS = [
@@ -38,6 +38,7 @@ export function EvidencePage({
   const [subject, setSubject] = useState(subjectId)
   const [selectedKind, setSelectedKind] = useState(kind)
   const [artifacts, setArtifacts] = useState<EvidenceArtifact[] | null>(null)
+  const [capabilities, setCapabilities] = useState<EvidenceCapabilities | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -63,10 +64,24 @@ export function EvidencePage({
     void load()
   }, [load])
 
+  // 正文通路由证据服务自述（file / s3）—— 列表页只拿它写一句准确的说明。
+  // 取不到不影响列表：文案退回到「按后端自动选」。
+  useEffect(() => {
+    let cancelled = false
+    getEvidenceCapabilities()
+      .then((value) => {
+        if (!cancelled) setCapabilities(value)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <PageShell
       title="证据"
-      summary="按主机 / 类型筛；点一行看元数据。正文只经 60s 单对象签名打开，BFF 不转存。"
+      summary={`按主机 / 类型筛；点一行看元数据。${evidenceBodyHint(capabilities)}`}
       actions={
         <button type="button" className="button button--ghost" onClick={() => void load()} disabled={loading}>
           {loading ? '加载中…' : '刷新'}
