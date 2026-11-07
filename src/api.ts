@@ -436,12 +436,22 @@ export interface OpenApiResponse {
   content?: Record<string, { schema?: OpenApiSchema }>
 }
 
+export interface OpenApiSecurityScheme {
+  type?: string
+  scheme?: string
+  bearerFormat?: string
+  in?: string
+  name?: string
+}
+
 export interface OpenApiOperation {
   summary?: string
   description?: string
   tags?: string[]
   parameters?: OpenApiParameter[]
   responses?: Record<string, OpenApiResponse>
+  /** 操作级鉴权（不写就继承文档级 `security`）。 */
+  security?: Record<string, string[]>[]
 }
 
 export interface OpenApiDocument {
@@ -449,7 +459,12 @@ export interface OpenApiDocument {
   info: { title: string; version: string; description?: string }
   /** `{ [path]: { get: OpenApiOperation, … } }` */
   paths: Record<string, Record<string, OpenApiOperation>>
-  components?: { schemas?: Record<string, OpenApiSchema> }
+  /** 文档级鉴权：`[{ bearer: [] }]` 表示“所有操作都要这个方案”。 */
+  security?: Record<string, string[]>[]
+  components?: {
+    schemas?: Record<string, OpenApiSchema>
+    securitySchemes?: Record<string, OpenApiSecurityScheme>
+  }
 }
 
 export function getAtlasOpenApi(): Promise<OpenApiDocument> {

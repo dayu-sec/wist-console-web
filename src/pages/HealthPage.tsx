@@ -99,8 +99,19 @@ function typeName(schema: OpenApiSchema | undefined): string {
  * 一个接口：一行摘要，展开看参数与响应。
  *
  * 内容全部来自 atlas 自己输出的 spec（编译期生成），页面不维护第二份接口清单。
+ * `secured` 来自 spec 的 `security`（文档级，operation 通常不重复）。
  */
-function ApiOperation({ path, method, operation }: { path: string; method: string; operation: OpenApiOperation }) {
+function ApiOperation({
+  path,
+  method,
+  operation,
+  secured,
+}: {
+  path: string
+  method: string
+  operation: OpenApiOperation
+  secured: boolean
+}) {
   const parameters = operation.parameters ?? []
   // 参数可能在 path item 级共享；这里只列 operations 上的（atlas 目前都在这一层）。
   const responses = Object.entries(operation.responses ?? {})
@@ -110,6 +121,11 @@ function ApiOperation({ path, method, operation }: { path: string; method: strin
         <span className="api-op__method">{method.toUpperCase()}</span>
         <code className="mono api-op__path">{path}</code>
         {operation.summary ? <span className="api-op__summary">{operation.summary}</span> : null}
+        {secured ? (
+          <span className="api-op__lock" title="需要 Authorization: Bearer <令牌>">
+            需要令牌
+          </span>
+        ) : null}
       </summary>
       <div className="api-op__body">
         {parameters.length === 0 ? (
@@ -333,7 +349,7 @@ export function HealthPage({
           title="资产拓扑 API"
           subtitle={
             atlasApi
-              ? `接口清单由 atlas 自己输出（OpenAPI ${atlasApi.openapi}，v${atlasApi.info.version}）：路径与字段跟着代码走，页面不维护第二份。点一行看参数与响应。`
+              ? `接口清单由 atlas 自己输出（OpenAPI ${atlasApi.openapi}，v${atlasApi.info.version}）：路径与字段跟着代码走，页面不维护第二份。atlas 侧要 Bearer 令牌，本页经 BFF 调用、令牌由 BFF 带上，不需要你输入。`
               : '读接口清单来自 atlas 自己输出的 /api/openapi.json；拿不到时这里只展示上一张表的探活结果。'
           }
           aside={
@@ -360,6 +376,7 @@ export function HealthPage({
                   path={path}
                   method={method}
                   operation={operation}
+                  secured={(operation.security ?? atlasApi?.security ?? []).length > 0}
                 />
               ))}
             </div>

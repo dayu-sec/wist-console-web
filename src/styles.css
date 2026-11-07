@@ -2293,3 +2293,16 @@ a:focus-visible {
 .api-op__body .table {
   margin: 6px 0;
 }
+
+/* 需要令牌的接口：summary 行上的小标签 */
+.api-op__lock {
+  flex: none;
+  margin-left: auto;
+  padding: 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 17px;
+  white-space: nowrap;
+}
