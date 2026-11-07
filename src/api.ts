@@ -403,6 +403,59 @@ export interface MetricsAgentHistory {
   series: MetricsHistorySeries[]
 }
 
+/**
+ * 资产拓扑（`wist-atlas`）自己输出的 OpenAPI 文档。
+ *
+ * 只取页面要用的子集：路径 / 参数 / 响应 / 被引用的 schema。
+ * 经 BFF 拉取（`/api/atlas/openapi.json` → atlas `/api/openapi.json`），
+ * 因此令牌校验只看一道门，浏览器不直连 atlas。
+ */
+export interface OpenApiSchema {
+  $ref?: string
+  type?: string | string[]
+  format?: string
+  nullable?: boolean
+  enum?: unknown[]
+  items?: OpenApiSchema
+  properties?: Record<string, OpenApiSchema>
+  required?: string[]
+  oneOf?: OpenApiSchema[]
+  anyOf?: OpenApiSchema[]
+}
+
+export interface OpenApiParameter {
+  name: string
+  in: string
+  required?: boolean
+  description?: string
+  schema?: OpenApiSchema
+}
+
+export interface OpenApiResponse {
+  description?: string
+  content?: Record<string, { schema?: OpenApiSchema }>
+}
+
+export interface OpenApiOperation {
+  summary?: string
+  description?: string
+  tags?: string[]
+  parameters?: OpenApiParameter[]
+  responses?: Record<string, OpenApiResponse>
+}
+
+export interface OpenApiDocument {
+  openapi: string
+  info: { title: string; version: string; description?: string }
+  /** `{ [path]: { get: OpenApiOperation, … } }` */
+  paths: Record<string, Record<string, OpenApiOperation>>
+  components?: { schemas?: Record<string, OpenApiSchema> }
+}
+
+export function getAtlasOpenApi(): Promise<OpenApiDocument> {
+  return request<OpenApiDocument>('/api/atlas/openapi.json')
+}
+
 export function getMetrics(): Promise<MetricsOverview> {
   return request<MetricsOverview>('/api/metrics')
 }

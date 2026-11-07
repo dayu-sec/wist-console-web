@@ -1,7 +1,18 @@
-import { useEffect, useState } from 'react'
-import type { ConsoleHealth, InterfaceState } from '../api'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  ApiError,
+  getAtlasOpenApi,
+  type ConsoleHealth,
+  type InterfaceState,
+  type OpenApiDocument,
+  type OpenApiOperation,
+  type OpenApiSchema,
+} from '../api'
 import { Badge, Block, Card, Empty, ErrorBanner, InfoBanner, PageShell, type BadgeTone } from '../components/ui'
 import { formatRelativeTime } from '../format'
+
+/** 方法顺序固定：同一路径上的多个方法按 HTTP 语义排，而不是字母序。 */
+const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const
 
 /** 一次检查的样本，只在本次会话里有（刷新页面就重来，不做持久化）。 */
 interface Sample {
@@ -71,6 +82,80 @@ function averageLatency(samples: Sample[]): number | null {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
 }
 
+/** `$ref` 只显名字；数组 / 组合类型就地展开。 */
+function typeName(schema: OpenApiSchema | undefined): string {
+  if (!schema) return '—'
+  if (schema.$ref) return schema.$ref.split('/').pop() ?? schema.$ref
+  if (schema.type === 'array') return `array<${typeName(schema.items)}>`
+  if (schema.oneOf?.length) return schema.oneOf.map(typeName).join(' | ')
+  if (schema.anyOf?.length) return schema.anyOf.map(typeName).join(' | ')
+  if (schema.enum?.length) return `enum(${schema.enum.map(String).join(' | ')})`
+  const types = Array.isArray(schema.type) ? schema.type : schema.type ? [schema.type] : []
+  if (types.length === 0) return 'object'
+  return schema.format ? `${types.join(' | ')}(${schema.format})` : types.join(' | ')
+}
+
+/**
+ * 一个接口：一行摘要，展开看参数与响应。
+ *
+ * 内容全部来自 atlas 自己输出的 spec（编译期生成），页面不维护第二份接口清单。
+ */
+function ApiOperation({ path, method, operation }: { path: string; method: string; operation: OpenApiOperation }) {
+  const parameters = operation.parameters ?? []
+  // 参数可能在 path item 级共享；这里只列 operations 上的（atlas 目前都在这一层）。
+  const responses = Object.entries(operation.responses ?? {})
+  return (
+    <details className="api-op">
+      <summary>
+        <span className="api-op__method">{method.toUpperCase()}</span>
+        <code className="mono api-op__path">{path}</code>
+        {operation.summary ? <span className="api-op__summary">{operation.summary}</span> : null}
+      </summary>
+      <div className="api-op__body">
+        {parameters.length === 0 ? (
+          <div className="table__meta">没有参数</div>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>参数</th>
+                  <th>位置</th>
+                  <th>类型</th>
+                  <th>必填</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parameters.map((parameter) => (
+                  <tr key={`${parameter.in}:${parameter.name}`}>
+                    <td>
+                      <code className="mono">{parameter.name}</code>
+                    </td>
+                    <td>{parameter.in}</td>
+                    <td>{typeName(parameter.schema)}</td>
+                    <td>{parameter.required ? '是' : '否'}</td>
+                    <td className="table__meta">{parameter.description ?? ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="table__meta">
+          响应：
+          {responses.map(([status, response], index) => (
+            <span key={status}>
+              {index > 0 ? ' · ' : ''}
+              {status} {typeName(response.content?.['application/json']?.schema)}
+            </span>
+          ))}
+        </div>
+      </div>
+    </details>
+  )
+}
+
 function Uptime({ samples }: { samples: Sample[] }) {
   if (samples.length === 0) return <span className="text-muted">—</span>
   const ok = samples.filter((sample) => sample.ok).length
@@ -110,6 +195,28 @@ export function HealthPage({
   onRefresh: () => void
 }) {
   const [history, setHistory] = useState<Record<string, Sample[]>>({})
+  const [atlasApi, setAtlasApi] = useState<OpenApiDocument | null>(null)
+  const [atlasApiError, setAtlasApiError] = useState<string | null>(null)
+  const [atlasApiLoading, setAtlasApiLoading] = useState(false)
+
+  // 资产拓扑的接口清单：atlas 自己输出的 OpenAPI，经 BFF 拉（带令牌）。
+  // 失败不是故障：老版本 atlas 没有 `/api/openapi.json`，页面降级成一句说明。
+  const loadAtlasApi = useCallback(async () => {
+    setAtlasApiLoading(true)
+    try {
+      setAtlasApi(await getAtlasOpenApi())
+      setAtlasApiError(null)
+    } catch (err) {
+      setAtlasApi(null)
+      setAtlasApiError(err instanceof ApiError ? `${err.message}（${err.code}）` : String(err))
+    } finally {
+      setAtlasApiLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadAtlasApi()
+  }, [loadAtlasApi])
 
   // 每次拿到新的检查结果就追加一条；`not_configured` 不算检查，不进历史。
   useEffect(() => {
@@ -133,6 +240,16 @@ export function HealthPage({
   const checked = interfaces.filter((item) => item.status !== 'not_configured')
   const available = checked.filter((item) => item.status === 'ok').length
   const overall: BadgeTone = !health ? 'gray' : available === checked.length ? 'green' : 'red'
+
+  const atlasOperations = Object.entries(atlasApi?.paths ?? {})
+    .sort(([left], [right]) => left.localeCompare(right))
+    .flatMap(([path, item]) =>
+      METHODS.filter((method) => item[method]).map((method) => ({
+        path,
+        method,
+        operation: item[method],
+      })),
+    )
 
   return (
     <PageShell
@@ -209,6 +326,52 @@ export function HealthPage({
                 </tbody>
               </table>
             </div>
+          )}
+        </Card>
+
+        <Card
+          title="资产拓扑 API"
+          subtitle={
+            atlasApi
+              ? `接口清单由 atlas 自己输出（OpenAPI ${atlasApi.openapi}，v${atlasApi.info.version}）：路径与字段跟着代码走，页面不维护第二份。点一行看参数与响应。`
+              : '读接口清单来自 atlas 自己输出的 /api/openapi.json；拿不到时这里只展示上一张表的探活结果。'
+          }
+          aside={
+            <>
+              <Badge tone={atlasOperations.length > 0 ? 'blue' : 'gray'}>
+                {atlasOperations.length > 0 ? `${atlasOperations.length} 个接口` : '无清单'}
+              </Badge>
+              <button
+                type="button"
+                className="button button--ghost button--sm"
+                onClick={() => void loadAtlasApi()}
+                disabled={atlasApiLoading}
+              >
+                {atlasApiLoading ? '读取中…' : '重新读取'}
+              </button>
+            </>
+          }
+        >
+          {atlasOperations.length > 0 ? (
+            <div className="api-ops">
+              {atlasOperations.map(({ path, method, operation }) => (
+                <ApiOperation
+                  key={`${method}:${path}`}
+                  path={path}
+                  method={method}
+                  operation={operation}
+                />
+              ))}
+            </div>
+          ) : (
+            <Empty
+              title="这个 atlas 版本还没提供接口清单"
+              hint={
+                atlasApiError
+                  ? `${atlasApiError} —— 升级到带 /api/openapi.json 的 atlas（0.3.4 起）后，这里会直接变成接口列表。`
+                  : 'atlas 没有输出 /api/openapi.json（0.3.4 之前）。升级后这里会直接变成接口列表。'
+              }
+            />
           )}
         </Card>
 

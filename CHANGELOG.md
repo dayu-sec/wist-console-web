@@ -10,6 +10,11 @@
   页面自带的开发者提示条（`base="/atlas/"` 那段）删除。
 - 画布按需加载（`React.lazy`）：首屏 JS 288KB（gzip 89KB），cytoscape 只在进拓扑页时下载。
 - nginx 删除 `location /atlas/` 与 `location /atlas/api/`；vite 开发代理删除 `/atlas`。
+- **「接口可用性」页新增「资产拓扑 API」卡**：不再只有一行 `http://atlas:8080/api`，
+  而是渲染 atlas 自己输出的 OpenAPI（`/api/atlas/openapi.json`，经 BFF 读、带令牌）：
+  10 个读接口的方法 / 路径 / 摘要，点开看参数（位置 / 类型 / 必填）与响应结构。
+  清单不在前端维护 —— 它跟着 atlas 的代码走。
+- atlas 版本旧、没有 `/api/openapi.json` 时这张卡降级成一句说明（不是报错），旁边有「重新读取」。
 - 画布升级到 `@dayu-sec/wist-atlas-graph@0.4.0`：多主机总览按网格铺开，只显示主机与共享网段，
   主机内部细节在双击/下钻后再展开。
 
