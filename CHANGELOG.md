@@ -10,6 +10,8 @@
   页面自带的开发者提示条（`base="/atlas/"` 那段）删除。
 - 画布按需加载（`React.lazy`）：首屏 JS 288KB（gzip 89KB），cytoscape 只在进拓扑页时下载。
 - nginx 删除 `location /atlas/` 与 `location /atlas/api/`；vite 开发代理删除 `/atlas`。
+- 画布升级到 `@dayu-sec/wist-atlas-graph@0.4.0`：多主机总览按网格铺开，只显示主机与共享网段，
+  主机内部细节在双击/下钻后再展开。
 
 ## 0.2.4 · 2026-11-07
 
