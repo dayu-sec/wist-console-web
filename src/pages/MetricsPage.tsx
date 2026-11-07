@@ -5,6 +5,7 @@ import {
   getMetricsHistory,
   type MetricsAgent,
   type MetricsAgentHistory,
+  type MetricsBusiness,
   type MetricsCatalogEntry,
   type MetricsHistorySeries,
   type MetricsOverview,
@@ -29,6 +30,9 @@ const WINDOWS = [
 ]
 
 const REFRESH_MS = 30_000
+
+/** 中间件层的指标名前缀：有契约（见 `wist-metrics` 的 spec 表），等 agentd 开 provider。 */
+const MIDDLEWARE_GROUPS = ['container', 'kafka']
 
 function errorText(err: unknown): string {
   return err instanceof ApiError ? `${err.message}（${err.code}）` : String(err)
@@ -58,6 +62,25 @@ function formatUptime(seconds: number | null): string {
   if (days > 0) return `${days} 天 ${hours} 小时`
   if (hours > 0) return `${hours} 小时 ${minutes} 分`
   return `${minutes} 分`
+}
+
+/**
+ * 把若干台的同一个字段加起来。
+ *
+ * `null` 与 `0` 是两回事：一台都没报这个维度时保持 `null`（页面显示「—」），
+ * 而不是伪装成「合计为 0」。
+ */
+function sumDefined(
+  agents: MetricsAgent[],
+  pick: (agent: MetricsAgent) => number | null,
+): number | null {
+  let total: number | null = null
+  for (const agent of agents) {
+    const value = pick(agent)
+    if (value === null || !Number.isFinite(value)) continue
+    total = (total ?? 0) + value
+  }
+  return total
 }
 
 /** 采集是否在跳：窗口内一个样本都没有 = 静默（不是「值为 0」）。 */
@@ -164,6 +187,39 @@ function CatalogGroup({ group, entries }: { group: string; entries: MetricsCatal
   )
 }
 
+/** 服务层的一行：按 `app`（用途）分组后的一组实例。 */
+interface ServiceRow {
+  app: string
+  hosts: number
+  reporting: number
+  processes: number | null
+  cpuPercent: number | null
+  memoryBytes: number | null
+  series: number
+}
+
+/** 服务层：`app` 表达用途，同一用途可能落在多台主机上。 */
+function serviceRows(agents: MetricsAgent[]): ServiceRow[] {
+  const groups = new Map<string, MetricsAgent[]>()
+  for (const agent of agents) {
+    const app = agent.labels.app ?? ''
+    const bucket = groups.get(app) ?? []
+    bucket.push(agent)
+    groups.set(app, bucket)
+  }
+  return [...groups.entries()]
+    .map(([app, members]) => ({
+      app,
+      hosts: members.length,
+      reporting: members.filter((agent) => agent.samples > 0).length,
+      processes: sumDefined(members, (agent) => agent.host.processes),
+      cpuPercent: sumDefined(members, (agent) => agent.cpu_percent),
+      memoryBytes: sumDefined(members, (agent) => agent.memory_bytes),
+      series: members.reduce((total, agent) => total + agent.series, 0),
+    }))
+    .sort((left, right) => right.hosts - left.hosts || left.app.localeCompare(right.app))
+}
+
 export function MetricsPage() {
   const [overview, setOverview] = useState<MetricsOverview | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -238,10 +294,18 @@ export function MetricsPage() {
       ? history
       : null
 
+  const business = overview?.business ?? []
+  const unassigned = overview?.unassigned_agents ?? []
+  const services = serviceRows(agents)
+  const middleware = (overview?.catalog ?? []).filter((entry) =>
+    MIDDLEWARE_GROUPS.includes(entry.group),
+  )
+  const hostsWithFacts = agents.filter((agent) => agent.host.hostname || agent.host.load_1m !== null)
+
   return (
     <PageShell
       title="运行指标"
-      summary="数据场里「强度」那一维：agent 自观测 + 主机资源（负载 / 内存 / 磁盘 / 挂载点 / 进程）。数据面把指标镜像进计算区 VictoriaMetrics（CONSOLE_VM_ENDPOINT），本页只读这一份；引擎/管道统计只写网关栈。"
+      summary="四层看这一片的「强度」：业务 → 服务 → 中间件 → 计算资源。数据面把指标镜像进计算区 VictoriaMetrics（CONSOLE_VM_ENDPOINT），本页只读这一份；引擎/管道统计只写网关栈，所以这里的序列数少于控制面那份。"
       actions={
         <>
           <select
@@ -323,10 +387,215 @@ export function MetricsPage() {
             </Card>
           ) : null}
 
-          {agents.some((agent) => agent.host.hostname || agent.host.load_1m !== null) ? (
+          {overview ? (
             <Card
-              title="主机资源"
-              subtitle="宿主侧（system_* / process_*）：负载、内存、磁盘与最紧张的挂载点。点行同样看趋势。"
+              title="1 · 业务层"
+              subtitle={
+                <>
+                  一个「命名的逻辑单元」。归属关系来自 <code className="mono">field-api.toml</code> 的{' '}
+                  <code className="mono">[[business.units]]</code>，不是指标 label —— 改归属不用重启数据面。
+                  内存 / 进程求和，负载与磁盘取峰值（它们本来就是单机口径）。
+                </>
+              }
+              aside={<Badge tone="blue">{business.length} 个业务</Badge>}
+            >
+              {business.length === 0 ? (
+                <Empty
+                  title="还没有配置业务单元"
+                  hint="在 field-api.toml 里加 [[business.units]]，把 agent 主机集合归到一个业务；一台主机只能属于一个业务，否则投入会重复计账。"
+                />
+              ) : (
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>业务</th>
+                        <th>主机</th>
+                        <th>负载 1m 峰值</th>
+                        <th>内存</th>
+                        <th>磁盘峰值</th>
+                        <th>进程</th>
+                        <th>采集目标</th>
+                        <th>序列</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {business.map((unit) => (
+                        <BusinessRowView key={unit.id} unit={unit} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {unassigned.length > 0 ? (
+                <div className="chips">
+                  <span className="chip">
+                    未归类 <strong>{unassigned.length}</strong> 台
+                  </span>
+                  {unassigned.map((agentId) => (
+                    <span key={agentId} className="chip">
+                      <code className="mono">{agentId}</code>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {agents.length > 0 ? (
+            <Card
+              title="2 · 服务层"
+              subtitle="按 `app`（用途）分组：一条服务落在几台主机、占多少 CPU / 内存、多少进程。点下面的主机看趋势。"
+              aside={<Badge tone="blue">{services.length} 条服务</Badge>}
+            >
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>服务（app）</th>
+                      <th>主机</th>
+                      <th>在报</th>
+                      <th>CPU</th>
+                      <th>内存</th>
+                      <th>进程</th>
+                      <th>序列</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {services.map((service) => (
+                      <tr key={service.app || '(未标注)'}>
+                        <td>
+                          {service.app ? (
+                            <code className="mono">{service.app}</code>
+                          ) : (
+                            <span className="muted">未标注 app</span>
+                          )}
+                        </td>
+                        <td>{service.hosts}</td>
+                        <td>
+                          <Badge tone={service.reporting > 0 ? 'green' : 'amber'}>
+                            {service.reporting}/{service.hosts}
+                          </Badge>
+                        </td>
+                        <td>{formatValue(service.cpuPercent, 'percent')}</td>
+                        <td>{formatValue(service.memoryBytes, 'bytes')}</td>
+                        <td>{service.processes === null ? '—' : Math.round(service.processes)}</td>
+                        <td>{service.series}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
+
+          {agents.length > 0 ? (
+            <Card
+              title="采集服务（agent 自观测）"
+              subtitle="服务层里「采集」这一侧自己的开销：CPU 是单核比例换算的百分比（1.0 = 占满一个核）。点一行看趋势。"
+              aside={<Badge tone="gray">{agents.length} 个 agent</Badge>}
+            >
+              <div className="table-wrap">
+                <table className="table table--clickable">
+                  <thead>
+                    <tr>
+                      <th>Agent</th>
+                      <th>环境</th>
+                      <th>CPU</th>
+                      <th>内存</th>
+                      <th>核数</th>
+                      <th>管理面时延</th>
+                      <th>采集</th>
+                      <th>序列</th>
+                      <th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agents.map((agent) => {
+                      const state = reportingState(agent)
+                      return (
+                        <tr
+                          key={agent.agent_id}
+                          className={
+                            agent.agent_id === activeAgentId ? 'table__row--selected' : undefined
+                          }
+                          onClick={() => setSelected(agent.agent_id)}
+                        >
+                          <td>
+                            <code className="mono">{agent.agent_id}</code>
+                          </td>
+                          <td>
+                            {agent.labels.env ? (
+                              <Badge tone="gray">{agent.labels.env}</Badge>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                          <td>{formatValue(agent.cpu_percent, 'percent')}</td>
+                          <td>{formatValue(agent.memory_bytes, 'bytes')}</td>
+                          <td>{agent.cpu_cores ?? '—'}</td>
+                          <td>{formatValue(agent.admin_latency_ms, 'milliseconds')}</td>
+                          <td>
+                            {agent.samples}
+                            <span className="muted"> 样本</span>
+                          </td>
+                          <td>{agent.series}</td>
+                          <td>
+                            <Badge tone={state.tone}>{state.label}</Badge>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          ) : null}
+
+          {agents.length > 0 ? (
+            <Card
+              title="3 · 中间件层"
+              subtitle="数据库 / 消息队列这类「服务之间的那一层」。指标名前缀 container_* / kafka_* 已有契约（wist-metrics 的 spec 表），等 agentd 开对应 provider。"
+              aside={<Badge tone="gray">{middleware.length} 个指标</Badge>}
+            >
+              {middleware.length === 0 ? (
+                <Empty
+                  title="中间件层还没有数据"
+                  hint="契约在、采集没开：需要 agentd 打开 DB / Kafka provider。在这一层出现之前，中间件的开销会混在计算资源层里看不出来。"
+                />
+              ) : (
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>指标</th>
+                        <th>分组</th>
+                        <th>序列</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {middleware.map((entry) => (
+                        <tr key={entry.name}>
+                          <td>
+                            <code className="mono">{entry.name}</code>
+                          </td>
+                          <td>
+                            <Badge tone="gray">{entry.group}</Badge>
+                          </td>
+                          <td>{entry.series}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          ) : null}
+
+          {hostsWithFacts.length > 0 ? (
+            <Card
+              title="4 · 计算资源层"
+              subtitle="宿主侧（system_* / process_*）：负载、内存、磁盘与最紧张的挂载点。业务层的负载 / 磁盘峰值就取自这里。点行同样看趋势。"
               aside={<Badge tone="blue">{agents.length} 台</Badge>}
             >
               <div className="table-wrap">
@@ -407,69 +676,6 @@ export function MetricsPage() {
             </Card>
           ) : null}
 
-          {agents.length > 0 ? (
-            <Card
-              title="Agent 自观测"
-              subtitle="点一行看趋势。CPU 是单核比例换算的百分比（1.0 = 占满一个核）。"
-              aside={<Badge tone="blue">{agents.length} 台</Badge>}
-            >
-              <div className="table-wrap">
-                <table className="table table--clickable">
-                  <thead>
-                    <tr>
-                      <th>Agent</th>
-                      <th>环境</th>
-                      <th>CPU</th>
-                      <th>内存</th>
-                      <th>核数</th>
-                      <th>管理面时延</th>
-                      <th>采集</th>
-                      <th>序列</th>
-                      <th>状态</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {agents.map((agent) => {
-                      const state = reportingState(agent)
-                      return (
-                        <tr
-                          key={agent.agent_id}
-                          className={
-                            agent.agent_id === activeAgentId ? 'table__row--selected' : undefined
-                          }
-                          onClick={() => setSelected(agent.agent_id)}
-                        >
-                          <td>
-                            <code className="mono">{agent.agent_id}</code>
-                          </td>
-                          <td>
-                            {agent.labels.env ? (
-                              <Badge tone="gray">{agent.labels.env}</Badge>
-                            ) : (
-                              <span className="muted">—</span>
-                            )}
-                          </td>
-                          <td>{formatValue(agent.cpu_percent, 'percent')}</td>
-                          <td>{formatValue(agent.memory_bytes, 'bytes')}</td>
-                          <td>{agent.cpu_cores ?? '—'}</td>
-                          <td>{formatValue(agent.admin_latency_ms, 'milliseconds')}</td>
-                          <td>
-                            {agent.samples}
-                            <span className="muted"> 样本</span>
-                          </td>
-                          <td>{agent.series}</td>
-                          <td>
-                            <Badge tone={state.tone}>{state.label}</Badge>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          ) : null}
-
           {activeAgent ? (
             <Card
               title="趋势"
@@ -524,5 +730,45 @@ export function MetricsPage() {
         </div>
       </Block>
     </PageShell>
+  )
+}
+
+/** 业务层的一行。`agents_missing` 是有话要说的：配置里有、存储里没有。 */
+function BusinessRowView({ unit }: { unit: MetricsBusiness }) {
+  return (
+    <tr>
+      <td>
+        <strong>{unit.name}</strong>
+        {unit.name !== unit.id ? <div className="table__meta">{unit.id}</div> : null}
+      </td>
+      <td>
+        {unit.agents_present}
+        {unit.agents.length > 0 ? <span className="muted">/{unit.agents.length}</span> : null}
+        {unit.agents_reporting !== unit.agents_present ? (
+          <div className="table__meta">在报 {unit.agents_reporting}</div>
+        ) : null}
+        {unit.agents_missing.length > 0 ? (
+          <div className="table__meta">
+            缺 <code className="mono">{unit.agents_missing.join(', ')}</code>
+          </div>
+        ) : null}
+      </td>
+      <td>{unit.load_1m_max === null ? '—' : unit.load_1m_max.toFixed(2)}</td>
+      <td>
+        {formatValue(unit.memory_used_bytes, 'bytes')}
+        {unit.memory_total_bytes !== null ? (
+          <div className="table__meta">共 {formatBytes(unit.memory_total_bytes)}</div>
+        ) : null}
+      </td>
+      <td>{formatValue(unit.disk_usage_max, 'percent')}</td>
+      <td>{unit.processes === null ? '—' : Math.round(unit.processes)}</td>
+      <td>
+        {unit.collect_targets === null ? '—' : Math.round(unit.collect_targets)}
+        {unit.collect_dropped ? (
+          <div className="table__meta">丢弃 {Math.round(unit.collect_dropped)}</div>
+        ) : null}
+      </td>
+      <td>{unit.series}</td>
+    </tr>
   )
 }

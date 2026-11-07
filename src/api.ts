@@ -342,12 +342,45 @@ export interface MetricsCatalogEntry {
   series: number
 }
 
+/**
+ * 业务层：一个「命名的逻辑单元」（归属记账，来自 `field-api.toml` 的 `[[business.units]]`）。
+ *
+ * 与 `app` label 不是一回事：`app` 表达用途，业务单元表达归属，一个业务可以跨多台主机。
+ * 聚合口径由 BFF 给出：内存 / 进程 / 采集数求和，负载 / 磁盘取峰值。
+ */
+export interface MetricsBusiness {
+  id: string
+  name: string
+  /** 配置里声明的归属主机（按配置顺序）。 */
+  agents: string[]
+  /** 存储里有序列的台数。 */
+  agents_present: number
+  /** 观察窗口内还在报的台数。 */
+  agents_reporting: number
+  /** 配置里有、存储里没有：离线 / 从没接入 / id 写错。 */
+  agents_missing: string[]
+  series: number
+  processes: number | null
+  cpu_cores: number | null
+  load_1m_max: number | null
+  memory_used_bytes: number | null
+  memory_total_bytes: number | null
+  disk_usage_max: number | null
+  filesystem_usage_max: number | null
+  collect_targets: number | null
+  collect_dropped: number | null
+}
+
 export interface MetricsOverview {
   generated_at_ms: number
   /** 样本数 / 静默判定的观察窗口（秒）。 */
   window_seconds: number
   source: { base_url: string }
   totals: { names: number; series: number; agents: number }
+  /** 业务层（按配置的顺序）。空数组 = 这个计算区还没做归属记账。 */
+  business: MetricsBusiness[]
+  /** 不在任何业务里的主机：单列出来，不默默漏掉。 */
+  unassigned_agents: string[]
   agents: MetricsAgent[]
   catalog: MetricsCatalogEntry[]
 }
