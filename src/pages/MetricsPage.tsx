@@ -48,6 +48,18 @@ function formatValue(value: number | null, unit: string): string {
   }
 }
 
+/** 运行时长：`3 天 4 小时` / `4 小时 12 分` / `12 分`。 */
+function formatUptime(seconds: number | null): string {
+  if (seconds === null || !Number.isFinite(seconds)) return '—'
+  const total = Math.floor(seconds)
+  const days = Math.floor(total / 86_400)
+  const hours = Math.floor((total % 86_400) / 3_600)
+  const minutes = Math.floor((total % 3_600) / 60)
+  if (days > 0) return `${days} 天 ${hours} 小时`
+  if (hours > 0) return `${hours} 小时 ${minutes} 分`
+  return `${minutes} 分`
+}
+
 /** 采集是否在跳：窗口内一个样本都没有 = 静默（不是「值为 0」）。 */
 function reportingState(agent: MetricsAgent): { tone: BadgeTone; label: string } {
   if (agent.samples > 0) return { tone: 'green', label: '在报' }
@@ -229,7 +241,7 @@ export function MetricsPage() {
   return (
     <PageShell
       title="运行指标"
-      summary="数据场里「强度」那一维：数据面把 agent 采集指标镜像进计算区 VictoriaMetrics（CONSOLE_VM_ENDPOINT），本页只读这一份。引擎/管道统计只写网关栈，不在这一页。"
+      summary="数据场里「强度」那一维：agent 自观测 + 主机资源（负载 / 内存 / 磁盘 / 挂载点 / 进程）。数据面把指标镜像进计算区 VictoriaMetrics（CONSOLE_VM_ENDPOINT），本页只读这一份；引擎/管道统计只写网关栈。"
       actions={
         <>
           <select
@@ -308,6 +320,90 @@ export function MetricsPage() {
                 title="还没有 agent 指标"
                 hint="场是由采样重建的：数据面的 wparse 要把 `agent-metrics` 分组镜像到 `CONSOLE_VM_ENDPOINT`；只写网关栈那份时，这里会一直是空的。"
               />
+            </Card>
+          ) : null}
+
+          {agents.some((agent) => agent.host.hostname || agent.host.load_1m !== null) ? (
+            <Card
+              title="主机资源"
+              subtitle="宿主侧（system_* / process_*）：负载、内存、磁盘与最紧张的挂载点。点行同样看趋势。"
+              aside={<Badge tone="blue">{agents.length} 台</Badge>}
+            >
+              <div className="table-wrap">
+                <table className="table table--clickable">
+                  <thead>
+                    <tr>
+                      <th>主机</th>
+                      <th>负载 1m / 5m / 15m</th>
+                      <th>内存</th>
+                      <th>磁盘（系统盘）</th>
+                      <th>最紧张挂载点</th>
+                      <th>运行时长</th>
+                      <th>进程</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agents.map((agent) => {
+                      const host = agent.host
+                      const load = (value: number | null) => (value === null ? '—' : value.toFixed(2))
+                      return (
+                        <tr
+                          key={agent.agent_id}
+                          className={
+                            agent.agent_id === activeAgentId ? 'table__row--selected' : undefined
+                          }
+                          onClick={() => setSelected(agent.agent_id)}
+                        >
+                          <td>
+                            <strong>{host.hostname ?? <span className="muted">—</span>}</strong>
+                            <div className="table__meta">
+                              {host.ip_addresses.length > 0 ? host.ip_addresses.join(', ') : agent.agent_id}
+                            </div>
+                            {host.os ? (
+                              <div className="table__meta">
+                                {host.os}
+                                {host.arch ? ` / ${host.arch}` : ''}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td>
+                            {load(host.load_1m)} / {load(host.load_5m)} / {load(host.load_15m)}
+                          </td>
+                          <td>
+                            {formatValue(host.memory_usage_percent, 'percent')}
+                            {host.memory_total_bytes !== null ? (
+                              <div className="table__meta">
+                                可用 {formatBytes(host.memory_available_bytes)} / 共{' '}
+                                {formatBytes(host.memory_total_bytes)}
+                              </div>
+                            ) : null}
+                          </td>
+                          <td>
+                            {formatValue(host.disk_usage_percent, 'percent')}
+                            {host.disk_total_bytes !== null ? (
+                              <div className="table__meta">共 {formatBytes(host.disk_total_bytes)}</div>
+                            ) : null}
+                          </td>
+                          <td>
+                            {host.filesystem_usage_percent === null ? (
+                              '—'
+                            ) : (
+                              <>
+                                {formatValue(host.filesystem_usage_percent, 'percent')}
+                                <div className="table__meta">
+                                  <code className="mono">{host.filesystem_mount ?? '—'}</code>
+                                </div>
+                              </>
+                            )}
+                          </td>
+                          <td>{formatUptime(host.uptime_seconds)}</td>
+                          <td>{host.processes === null ? '—' : Math.round(host.processes)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           ) : null}
 

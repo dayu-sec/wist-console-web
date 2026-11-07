@@ -288,6 +288,32 @@ export function getIntegration(): Promise<IntegrationInfo> {
  * 网关栈那份 VM 只服务控制面观测页，两份存储互不聚合 —— 所以这里没有引擎/管道统计
  * （`wparse_*` 只写网关栈）。单位由 BFF 换算好（百分比 / 毫秒 / 字节），页面不做算术。
  */
+/** 主机侧（`system_*` / `process_*`）：宿主资源，不是 agent 进程自己的。 */
+export interface MetricsHost {
+  hostname: string | null
+  ip_addresses: string[]
+  os: string | null
+  arch: string | null
+  kernel: string | null
+  load_1m: number | null
+  load_5m: number | null
+  load_15m: number | null
+  memory_total_bytes: number | null
+  memory_available_bytes: number | null
+  /** 百分比。 */
+  memory_usage_percent: number | null
+  /** 系统盘（`disk_role=system`）使用率，百分比。 */
+  disk_usage_percent: number | null
+  disk_total_bytes: number | null
+  disk_available_bytes: number | null
+  /** 最紧张的挂载点（可能不是系统盘根分区），百分比。 */
+  filesystem_usage_percent: number | null
+  filesystem_mount: string | null
+  uptime_seconds: number | null
+  /** 采集到的进程数。 */
+  processes: number | null
+}
+
 export interface MetricsAgent {
   agent_id: string
   /** 选择类 label（`env` / `cluster` / …），由网关下发、贴在每条序列上。 */
@@ -305,6 +331,8 @@ export interface MetricsAgent {
   collect_dropped: number | null
   uplink_failed_total: number | null
   discovery_policy_version: number | null
+  /** 主机侧资源；老 agentd 只报自观测时为空值。 */
+  host: MetricsHost
 }
 
 export interface MetricsCatalogEntry {
