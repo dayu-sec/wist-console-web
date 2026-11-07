@@ -23,7 +23,7 @@
 |---|---|---|
 | 概览 | 可用 | `GET /api/health`（各数据源就绪度 + 接口可用性摘要） |
 | 证据 | 可用 | `GET /api/evidence`、`GET /api/evidence/{id}`、`GET /api/evidence/capabilities`（选正文通路）、`POST /api/evidence/{id}:presign` |
-| 资产拓扑 | 嵌入 | 同源 `/atlas/`（`wist-atlas-web`） |
+| 资产拓扑 | 可用 | `GET /api/atlas/*`（wist-atlas 只读 API，经 BFF 转；画布来自 `@dayu-sec/wist-atlas-graph`） |
 | 运行指标 | 占位 | 平台侧尚无聚合（现网的 VM 在各网关栈里） |
 | 接口可用性 | 可用 | `GET /api/health.interfaces[]`：逐条探活 + 本次会话可用率 |
 | 安全设备 | 占位 | `containment_capabilities` 尚未上报 |
@@ -60,13 +60,18 @@ POST /api/evidence/{artifact_id}:presign
 `EvidenceArtifact` 的字段与 `wist-evidence` 索引行一致（见
 `design/center/evidence-service.md` §5.1）。
 
-## atlas 嵌入
+## 资产拓扑（组件化，不是 iframe）
 
-`wist-atlas-web` 需要：
+画布、工具条、详情抽屉来自共享包
+[`@dayu-sec/wist-atlas-graph`](https://github.com/dayu-sec/wist-atlas-graph)（`./ui` 子入口 + 自带样式）：
 
-1. 以 `base: '/atlas/'` 构建（否则 `/assets/*` 会打到本域名根，页面白屏）；
-2. 由本容器反代 `location /atlas/ → http://atlas-web:80/`；
-3. 深链走 `/atlas/#/host/<id>`，不传 token、不做跨域 iframe。
+- 数据和 `wist-atlas` 独立部署时完全一样，只是**走 BFF 的 `/api/atlas/*`**（令牌校验只有一道门）；
+- 前缀与令牌由本页注入（`createAtlasClient({ baseUrl, headers })`），浏览器不直连 atlas；
+- 主题用数据场自己的 `useAppTheme()`，画布跟随深浅色，没有第二套顶栏/路由；
+- 画布代码按需加载（`React.lazy`），首屏不带 cytoscape。
+
+早先的 `/atlas/` 静态托管 + iframe 方案已经删除（含 nginx 的 `location /atlas/` 与
+`location /atlas/api/`）。`wist-atlas-web` 仍可独立部署，但它不再是本站的运行时依赖。
 
 ## 开发
 
@@ -75,12 +80,10 @@ npm ci
 npm run dev        # http://127.0.0.1:5175
 ```
 
-本机另起 BFF / atlas 时用环境变量覆盖代理目标：
+本机另起 BFF 时用环境变量覆盖代理目标：
 
 ```bash
-VITE_CONSOLE_API_TARGET=http://127.0.0.1:19201 \
-VITE_ATLAS_DEV_URL=http://127.0.0.1:18080 \
-npm run dev
+VITE_CONSOLE_API_TARGET=http://127.0.0.1:19201 npm run dev
 ```
 
 ## 构建与镜像

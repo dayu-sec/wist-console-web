@@ -1917,14 +1917,65 @@ a:focus-visible {
  * 只加本台独有的形状；颜色一律走上面的 token，不自造色值。
  * ========================================================================== */
 
-/* atlas 的同源嵌入：高度吃掉状态条与页头，最小 420px 防止小窗口里变成一条缝。 */
-.field-frame {
-  width: 100%;
-  height: calc(100vh - 220px);
-  min-height: 420px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg-elevated);
+/* 资产拓扑：整页占满「状态条以下」的高度，画布自己消化剩余空间。
+   高度用 dvh 而不是猜一个 220px —— 页头/说明长短一变，iframe 时代的双滚动就回来了。 */
+.topology-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--topbar-height));
+  min-height: 0;
+}
+
+.topology-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 24px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.topology-bar__title {
+  min-width: 0;
+}
+
+.topology-bar__title .page-title {
+  font-size: 18px;
+}
+
+.topology-bar__title .page-summary {
+  max-width: 760px;
+  margin-top: 4px;
+}
+
+.topology-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.topology-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topology-field select {
+  width: auto;
+  min-width: 180px;
+  min-height: 32px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+}
+
+@media (max-width: 860px) {
+  .topology-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px 10px;
+  }
 }
 
 /* ============================================================================

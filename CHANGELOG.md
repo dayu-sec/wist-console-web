@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## 未发布 · 2026-11-07
+
+- **资产拓扑改为组件化接入**：删掉 iframe 与 `/atlas/` 静态托管，改用
+  [`@dayu-sec/wist-atlas-graph@0.3.1`](https://github.com/dayu-sec/wist-atlas-graph) 的
+  `useTopologyView` + `TopologyCanvasView`。数据仍来自 wist-atlas，但走 BFF 的 `/api/atlas/*`；
+  主题、键盘、搜索、缩放与数据场在同一棵 React 树里。
+- 拓扑页整页占满「状态条以下」的高度（`100dvh - topbar`），不再用 `calc(100vh - 220px)` 猜；
+  页面自带的开发者提示条（`base="/atlas/"` 那段）删除。
+- 画布按需加载（`React.lazy`）：首屏 JS 288KB（gzip 89KB），cytoscape 只在进拓扑页时下载。
+- nginx 删除 `location /atlas/` 与 `location /atlas/api/`；vite 开发代理删除 `/atlas`。
+
 ## 0.2.4 · 2026-11-07
 
 - **「运行指标」页改成四层表达**：`1 · 业务层` → `2 · 服务层` → `3 · 中间件层` → `4 · 计算资源层`。

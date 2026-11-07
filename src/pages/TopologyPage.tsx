@@ -1,31 +1,78 @@
-import { Block, InfoBanner, PageShell } from '../components/ui'
+import { useMemo } from 'react'
+import { createAtlasClient } from '@dayu-sec/wist-atlas-graph'
+import { TopologyCanvasView, useTopologyView } from '@dayu-sec/wist-atlas-graph/ui'
+import '@dayu-sec/wist-atlas-graph/styles.css'
+import { getToken } from '../auth'
+import { useAppTheme } from '../theme'
 
 /**
- * 资产拓扑：**不重写** atlas 的画布，直接同源嵌入 `/atlas/`。
+ * 资产拓扑：**组件化嵌画布**，不再 iframe 整个 atlas。
  *
- * 前提（见 README「atlas 嵌入」）：
- * - `wist-atlas-web` 需要用 `base: '/atlas/'` 构建（否则它的 `/assets/*` 会打到本域名根）；
- * - 两侧同一入口（VPN / 堡垒机）与同一套 mTLS 身份，不做跨域 iframe。
+ * 主机/服务/进程关系仍由 wist-atlas 的只读 API 提供，但数据走 BFF 的 `/api/atlas/*`
+ * （令牌校验只有一道门），画布、工具条、详情抽屉来自 `@dayu-sec/wist-atlas-graph`。
+ * 好处：没有第二套顶栏/路由/主题，深浅色与数据场一致，Esc/搜索/缩放都在同一棵 React 树里。
  */
 export function TopologyPage() {
+  const theme = useAppTheme()
+
+  // 前缀与令牌由宿主注入：BFF 把 `/api/atlas/*` 转给 atlas，浏览器不直连 atlas。
+  const client = useMemo(
+    () =>
+      createAtlasClient({
+        baseUrl: '/api/atlas',
+        headers: () => {
+          const token = getToken()
+          const headers: Record<string, string> = {}
+          if (token) headers.Authorization = `Bearer ${token}`
+          return headers
+        },
+      }),
+    [],
+  )
+
+  const view = useTopologyView({ client })
+
   return (
-    <PageShell
-      title="资产拓扑"
-      summary="主机 / 服务 / 进程关系由 wist-atlas 提供；这里只做同源嵌入与深链，不复制它的交互。"
-    >
-      <Block wide>
-      <InfoBanner>
-        `wist-atlas-web` 需以 <code className="mono">base=&quot;/atlas/&quot;</code> 构建，并由本容器
-        反代（nginx <code className="mono">location /atlas/</code>）。未接入时下面的 frame 会是 404 —— 那是
-        配置问题，不是页面坏了。
-      </InfoBanner>
-      <iframe
-        className="field-frame"
-        src="/atlas/"
-        title="wist-atlas 资产拓扑"
-        referrerPolicy="no-referrer"
-      />
-      </Block>
-    </PageShell>
+    <div className="topology-page">
+      <header className="topology-bar">
+        <div className="topology-bar__title">
+          <h1 className="page-title">资产拓扑</h1>
+          <p className="page-summary">
+            主机 / 服务 / 进程关系由 wist-atlas 提供；这里是同一张画布的组件化接入，不是 iframe。
+          </p>
+        </div>
+
+        <div className="topology-bar__actions">
+          <label className="topology-field">
+            <span className="field__label">主机</span>
+            <select
+              value={view.hostId}
+              onChange={(event) => view.setHostId(event.target.value)}
+              disabled={view.hosts.length === 0}
+              aria-label="切换主机"
+            >
+              <option value="">全部主机（总览）</option>
+              {view.hosts.map((host) => (
+                <option key={host.id} value={host.id}>
+                  {host.hostName}
+                  {host.stale ? '（已退役）' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className="button button--ghost button--sm"
+            onClick={view.refresh}
+            disabled={view.loading}
+          >
+            {view.loading ? '同步中…' : '刷新'}
+          </button>
+        </div>
+      </header>
+
+      <TopologyCanvasView view={view} theme={theme} />
+    </div>
   )
 }

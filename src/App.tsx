@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { ApiError, getHealth, type ConsoleHealth } from './api'
 import { UNAUTHORIZED_EVENT, clearToken, getToken } from './auth'
 import { Shell, type Tab } from './components/Shell'
@@ -11,7 +11,11 @@ import { OverviewPage } from './pages/Overview'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { IngestPage } from './pages/IngestPage'
 import { MetricsPage } from './pages/MetricsPage'
-import { TopologyPage } from './pages/TopologyPage'
+
+// 拓扑画布带 cytoscape（~200KB gzip）：只有进这一页才加载，别拖慢首屏。
+const TopologyPage = lazy(() =>
+  import('./pages/TopologyPage').then((module) => ({ default: module.TopologyPage })),
+)
 
 const TABS: Tab[] = ['overview', 'evidence', 'topology', 'metrics', 'health', 'devices', 'ingest']
 
@@ -162,7 +166,26 @@ export default function App() {
         />
       ) : null}
 
-      {route.tab === 'topology' ? <TopologyPage /> : null}
+      {route.tab === 'topology' ? (
+        <Suspense
+          fallback={
+            <div className="page-shell">
+              <div className="page-header">
+                <h1 className="page-title">资产拓扑</h1>
+              </div>
+              <main className="page-main">
+                <section className="block">
+                  <div className="empty">
+                    <strong className="empty__title">正在装载画布…</strong>
+                  </div>
+                </section>
+              </main>
+            </div>
+          }
+        >
+          <TopologyPage />
+        </Suspense>
+      ) : null}
 
       {route.tab === 'health' ? (
         <HealthPage

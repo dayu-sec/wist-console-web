@@ -1,7 +1,8 @@
 import { defineConfig, type ProxyOptions } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// 开发态把 /api 代理到 BFF、/atlas 代理到 atlas-web；容器里由 nginx 做同样的反代（见 nginx.conf）。
+// 开发态把 /api 代理到 BFF；容器里由 nginx 做同样的反代（见 nginx.conf）。
+// 资产拓扑不再走 `/atlas/`：画布是组件，数据走 BFF 的 `/api/atlas/*`（同一条 /api 代理）。
 //
 // 三种用法（`dev/dev-web.sh` 封装了前两种）：
 //   1. 纯源码：`VITE_CONSOLE_API_TARGET` 指本机 `wist-field-api`（默认 127.0.0.1:19200）；
@@ -10,7 +11,6 @@ import react from '@vitejs/plugin-react'
 //   3. 令牌：`VITE_CONSOLE_DEV_TOKEN` 只在页面**没带** `Authorization` 时补，
 //      所以令牌输入框 / 401 这些路径在 dev 里仍然是真的。
 const apiTarget = process.env.VITE_CONSOLE_API_TARGET ?? 'http://127.0.0.1:19200'
-const atlasTarget = process.env.VITE_ATLAS_DEV_URL ?? 'http://127.0.0.1:18080'
 const devToken = process.env.VITE_CONSOLE_DEV_TOKEN ?? ''
 const port = Number(process.env.VITE_CONSOLE_DEV_PORT ?? 5175)
 
@@ -38,8 +38,6 @@ export default defineConfig({
     port,
     proxy: {
       '/api': proxy(apiTarget),
-      // 生产里 atlas 挂在 `/atlas/`（同源反代）；开发态同样透传，避免两套 URL 形状。
-      '/atlas': proxy(atlasTarget),
     },
   },
 })
