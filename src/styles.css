@@ -2306,3 +2306,33 @@ a:focus-visible {
   line-height: 17px;
   white-space: nowrap;
 }
+
+/* 接口的调用示例（命令 + 复制） */
+.api-op__label {
+  margin: 10px 0 4px;
+  color: var(--text-4);
+  font-size: 12px;
+}
+
+.api-op__curl {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.api-op__curl pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 11px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  color: var(--code-text);
+  font: 12.5px/1.5 var(--font-mono);
+}
+
+.api-op__curl button {
+  flex: none;
+}

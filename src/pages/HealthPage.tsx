@@ -96,6 +96,43 @@ function typeName(schema: OpenApiSchema | undefined): string {
 }
 
 /**
+ * 一个接口的 curl 示例。
+ *
+ * base 是**数据场**的入口（`/api/atlas/*` 会经 BFF 转给 atlas），所以这里用的令牌是
+ * 数据场的 `wcr_…` —— atlas 自己的令牌由 BFF 带上，页面/用户不需要知道。
+ * 路径参数写成 `<id>`：看得出是占位符，不会被当成能直接跑。
+ */
+function curlFor(path: string, method: string): string {
+  const origin = window.location.origin
+  const target = path.replace(/^\/api/, '/api/atlas').replace(/\{([^}]+)\}/g, (_, name) => `<${name}>`)
+  const insecure = window.location.protocol === 'https:' ? '-k ' : ''
+  return `curl ${insecure}-s -X ${method.toUpperCase()} '${origin}${target}' \\\n  -H 'authorization: Bearer <数据场令牌>'`
+}
+
+/** 可复制的命令块。 */
+function CurlExample({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="api-op__curl">
+      <pre>
+        <code>{text}</code>
+      </pre>
+      <button
+        type="button"
+        className="button button--ghost button--sm"
+        onClick={() => {
+          void navigator.clipboard?.writeText(text)
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1500)
+        }}
+      >
+        {copied ? '已复制' : '复制'}
+      </button>
+    </div>
+  )
+}
+
+/**
  * 一个接口：一行摘要，展开看参数与响应。
  *
  * 内容全部来自 atlas 自己输出的 spec（编译期生成），页面不维护第二份接口清单。
@@ -128,6 +165,13 @@ function ApiOperation({
         ) : null}
       </summary>
       <div className="api-op__body">
+        <div className="api-op__label">调用示例</div>
+        <CurlExample text={curlFor(path, method)} />
+        {parameters.length > 0 ? (
+          <div className="table__meta">
+            查询参数：{parameters.map((parameter) => parameter.name).join(' / ')}（类型与说明见下表）
+          </div>
+        ) : null}
         {parameters.length === 0 ? (
           <div className="table__meta">没有参数</div>
         ) : (
